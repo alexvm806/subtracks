@@ -62,6 +62,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -782,7 +783,11 @@ private fun SyncIntervalDialog(
 
 @Composable
 private fun fadeDurationLabel(seconds: Int): String =
-    if (seconds == 0) stringResource(R.string.sync_mode_off) else stringResource(R.string.track_fade_duration, seconds)
+    if (seconds == 0) {
+        stringResource(R.string.sync_mode_off)
+    } else {
+        pluralStringResource(R.plurals.track_fade_duration, seconds, seconds)
+    }
 
 @Composable
 private fun ConcurrencyDialog(

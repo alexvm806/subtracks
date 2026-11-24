@@ -397,6 +397,9 @@
     <string name="preload_next_title">Preload next track</string>
     <string name="preload_next_summary">Prepare up to 3 seconds of the next track on unmetered connections. Off in offline mode.</string>
     <string name="track_fade_title">Fade out and fade in</string>
-    <string name="track_fade_duration">%1$d seconds</string>
+    <plurals name="track_fade_duration">
+        <item quantity="one">%1$d second</item>
+        <item quantity="other">%1$d seconds</item>
+    </plurals>
     <string name="track_fade_help">Fade between tracks during automatic playback. Tracks from the same album play continuously.</string>
 </resources>
