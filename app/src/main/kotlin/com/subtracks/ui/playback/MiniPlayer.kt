@@ -23,6 +23,7 @@ import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -134,7 +135,7 @@ fun MiniPlayer(
                     Column(Modifier.weight(1f)) {
                         Text(
                             text = item.title,
-                            style = MaterialTheme.typography.bodyMedium,
+                            style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.onSurface,
                             maxLines = 1,
                             modifier = Modifier.basicMarquee(),
@@ -148,10 +149,10 @@ fun MiniPlayer(
                         )
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        IconButton(onClick = onPlayPause, modifier = Modifier.size(48.dp)) {
+                        FilledIconButton(onClick = onPlayPause, modifier = Modifier.size(48.dp)) {
                             if (state.isBuffering && state.isPlaying) {
                                 CircularProgressIndicator(
-                                    color = MaterialTheme.colorScheme.onSurface,
+                                    color = MaterialTheme.colorScheme.onPrimary,
                                     strokeWidth = 3.dp,
                                     modifier = Modifier.size(24.dp),
                                 )
@@ -166,8 +167,8 @@ fun MiniPlayer(
                                         } else {
                                             stringResource(R.string.controls_play)
                                         },
-                                    tint = MaterialTheme.colorScheme.onSurface,
-                                    modifier = Modifier.size(36.dp),
+                                    tint = MaterialTheme.colorScheme.onPrimary,
+                                    modifier = Modifier.size(28.dp),
                                 )
                             }
                         }
@@ -176,7 +177,7 @@ fun MiniPlayer(
                                 imageVector = Icons.Rounded.SkipNext,
                                 contentDescription = stringResource(R.string.controls_next),
                                 tint = MaterialTheme.colorScheme.onSurface,
-                                modifier = Modifier.size(36.dp),
+                                modifier = Modifier.size(28.dp),
                             )
                         }
                     }

@@ -371,4 +371,5 @@
         <item quantity="other">%1$d plays</item>
     </plurals>
 
+    <string name="listening_room">Listening room</string>
 </resources>

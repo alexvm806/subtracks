@@ -41,6 +41,7 @@ import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -208,6 +209,50 @@ fun HomeScreen(
             contentPadding = PaddingValues(top = topInset + 8.dp, bottom = bottomInset + 24.dp),
         ) {
             homeTitle()
+            feed.rediscoverAlbums.firstOrNull()?.let { album ->
+                item(key = "featured-rediscovery") {
+                    val art = coverArt(album.coverArt, true)
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceContainer,
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 8.dp)
+                                .combinedClickable(
+                                    onClick = { onAlbumClick(album) },
+                                    onLongClick = { onLongClick(MenuTarget.Album(album, art)) },
+                                ),
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            CoverArt(ref = art, name = album.name, modifier = Modifier.size(116.dp))
+                            Column(
+                                modifier = Modifier.weight(1f).padding(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp),
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.home_section_rediscover),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.primary,
+                                )
+                                Text(
+                                    text = album.name,
+                                    style = MaterialTheme.typography.titleLarge,
+                                    maxLines = 3,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                                album.albumArtist?.let { artist ->
+                                    Text(
+                                        text = artist,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        maxLines = 2,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
             albumRow(
                 HomeSection.RecentlyAddedAlbums,
                 feed.recentlyAddedAlbums,
@@ -286,10 +331,10 @@ private fun LazyListScope.homeTitle() {
                 painter = painterResource(R.drawable.ic_subtracks_logo),
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(width = 34.dp, height = 25.dp),
+                modifier = Modifier.size(32.dp),
             )
             Spacer(Modifier.width(8.dp))
-            Text(text = "subtracks", style = MaterialTheme.typography.headlineMedium)
+            Text(text = stringResource(R.string.listening_room), style = MaterialTheme.typography.headlineMedium)
         }
     }
 }

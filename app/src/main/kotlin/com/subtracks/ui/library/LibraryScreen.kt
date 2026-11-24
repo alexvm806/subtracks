@@ -97,8 +97,10 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
@@ -866,7 +868,7 @@ internal fun LibraryTabs(
     artwork: ArtworkColors?,
     syncing: Boolean = false,
 ) {
-    val indicatorStretch = 18.dp
+    val indicatorStretch = 5.dp
     val density = LocalDensity.current
     val layoutDirection = LocalLayoutDirection.current
     val bounds = remember { mutableStateMapOf<Int, Rect>() }
@@ -897,7 +899,7 @@ internal fun LibraryTabs(
     val indicatorRight = current?.let { it.right + ((neighbour?.right ?: it.right) - it.right) * step + rightExtra }
 
     val headerColor = artwork?.let(::playerSurfaceColor) ?: MaterialTheme.colorScheme.background
-    val indicatorColor = artwork?.scheme?.primary ?: MaterialTheme.colorScheme.onBackground
+    val indicatorColor = artwork?.scheme?.primary ?: MaterialTheme.colorScheme.primary
     val tabContentHeightPx = with(density) { (TAB_ICON_SIZE + TAB_VERTICAL_PADDING * 2).toPx() }
 
     val scrollState = rememberScrollState()
@@ -1023,7 +1025,7 @@ private fun TabButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val selectedContent = artwork?.scheme?.onPrimary ?: MaterialTheme.colorScheme.background
+    val selectedContent = artwork?.scheme?.onPrimary ?: MaterialTheme.colorScheme.onPrimary
     val paddingStart = with(LocalDensity.current) { 8.dp.toPx() }
     var tabLeft by remember { mutableFloatStateOf(0f) }
     val clipStart = indicatorLeft?.minus(tabLeft + paddingStart)
@@ -1032,7 +1034,8 @@ private fun TabButton(
         modifier =
             modifier
                 .onGloballyPositioned { tabLeft = it.boundsInParent().left }
-                .clickable(onClick = onClick)
+                .semantics { selected = progress > 0.5f }
+                .clickable(role = Role.Tab, onClick = onClick)
                 .height(TOUCH_TARGET),
         contentAlignment = Alignment.Center,
     ) {

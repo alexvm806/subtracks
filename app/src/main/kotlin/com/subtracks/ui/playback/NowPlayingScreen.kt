@@ -332,10 +332,10 @@ fun NowPlayingScreen(
     previousArt: NowPlayingArt? = null,
     nextArt: NowPlayingArt? = null,
 ) {
-    val playButtonSize = 90.dp
+    val playButtonSize = 72.dp
     val playCircleDiameter = playButtonSize * 20f / 24f
     val titleStyle =
-        MaterialTheme.typography.headlineSmall.copy(
+        MaterialTheme.typography.headlineMedium.copy(
             platformStyle = PlatformTextStyle(includeFontPadding = false),
             lineHeightStyle = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.Both),
         )
@@ -538,7 +538,7 @@ fun NowPlayingScreen(
                         val density = LocalDensity.current
                         val titleHeight =
                             with(density) {
-                                MaterialTheme.typography.headlineSmall.lineHeight
+                                MaterialTheme.typography.headlineMedium.lineHeight
                                     .toDp()
                             }
                         val subtitleHeight =
@@ -655,11 +655,11 @@ fun NowPlayingScreen(
                                     modifier = Modifier.size(30.dp),
                                 )
                             }
-                            IconButton(onClick = onPrevious, modifier = Modifier.size(72.dp)) {
+                            IconButton(onClick = onPrevious, modifier = Modifier.size(48.dp)) {
                                 Icon(
                                     imageVector = Icons.Rounded.SkipPrevious,
                                     contentDescription = stringResource(R.string.controls_previous),
-                                    modifier = Modifier.size(60.dp),
+                                    modifier = Modifier.size(32.dp),
                                 )
                             }
                             IconButton(onClick = onPlayPause, modifier = Modifier.size(playButtonSize)) {
@@ -688,15 +688,16 @@ fun NowPlayingScreen(
                                             } else {
                                                 stringResource(R.string.controls_play)
                                             },
+                                        tint = MaterialTheme.colorScheme.primary,
                                         modifier = Modifier.size(playButtonSize),
                                     )
                                 }
                             }
-                            IconButton(onClick = onNext, modifier = Modifier.size(72.dp)) {
+                            IconButton(onClick = onNext, modifier = Modifier.size(48.dp)) {
                                 Icon(
                                     imageVector = Icons.Rounded.SkipNext,
                                     contentDescription = stringResource(R.string.controls_next),
-                                    modifier = Modifier.size(60.dp),
+                                    modifier = Modifier.size(32.dp),
                                 )
                             }
                             IconButton(onClick = onShuffle, modifier = Modifier.size(48.dp)) {

@@ -1,0 +1,40 @@
+name: Development APK
+
+on:
+  push:
+    branches: [development, feature/listening-room]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: development-apk-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/build
+        with:
+          gradle-args: >-
+            :app:testDebugUnitTest :app:assembleNightly
+            --no-configuration-cache --console=plain --no-daemon
+      - name: Package nightly APK
+        run: |
+          mkdir -p dist
+          cp app/build/outputs/apk/nightly/app-nightly.apk dist/subtracks-development.apk
+          cd dist
+          sha256sum subtracks-development.apk > SHA256SUMS
+      - uses: actions/upload-artifact@v7
+        with:
+          name: subtracks-development-${{ github.run_number }}
+          path: dist/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
