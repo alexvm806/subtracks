@@ -147,12 +147,12 @@ class PlaybackControllerTest {
         seedAlbum(60, sourceId = 1)
 
         controller.playAlbum(1, "al1", 30)
-        await { handle.operations.contains("play") }
+        await { handle.operations.contains("play") && handle.itemCount == 51 }
 
         assertEquals(51, handle.itemCount)
         assertEquals(25, handle.currentIndex)
         assertEquals("s31", handle.currentItem?.id)
-        assertEquals(listOf("prepare", "play"), handle.operations.takeLast(2))
+        assertEquals(listOf("prepare", "play"), handle.operations.filter { it == "prepare" || it == "play" })
     }
 
     @Test
