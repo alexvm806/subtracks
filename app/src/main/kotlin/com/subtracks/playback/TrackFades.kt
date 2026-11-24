@@ -64,6 +64,8 @@ internal class TrackFades(
         if (changed) schedule()
     }
 
+    private fun MediaItem.album(): String? = mediaMetadata.albumTitle?.toString()
+
     private fun schedule() {
         ramp?.cancel()
         if (!player.isPlaying || player.duration <= 0) {
@@ -73,10 +75,10 @@ internal class TrackFades(
         val duration = player.duration
         val window = minOf(seconds * 1000L, duration / 2)
         val next = player.nextMediaItemIndex
-        val currentAlbum = player.currentMediaItem?.mediaMetadata?.albumTitle?.toString()
+        val currentAlbum = player.currentMediaItem?.album()
         val fadeTail =
             next >= 0 && next != player.currentMediaItemIndex &&
-                (currentAlbum.isNullOrBlank() || currentAlbum != player.getMediaItemAt(next).mediaMetadata.albumTitle?.toString())
+                (currentAlbum.isNullOrBlank() || currentAlbum != player.getMediaItemAt(next).album())
         ramp =
             scope.launch {
                 while (window > 0 && player.isPlaying) {
