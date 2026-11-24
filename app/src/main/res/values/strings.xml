@@ -394,4 +394,6 @@
     <string name="sleep_end_playlist">End of playlist</string>
     <string name="sleep_end_album">End of album</string>
     <string name="sleep_end_queue">End of queue</string>
+    <string name="preload_next_title">Preload next track</string>
+    <string name="preload_next_summary">Prepare up to 3 seconds of the next track on unmetered connections. Off in offline mode.</string>
 </resources>

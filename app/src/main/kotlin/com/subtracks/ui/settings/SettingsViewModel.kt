@@ -88,6 +88,9 @@ class SettingsViewModel(
             .songTapBehavior()
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SongTapBehavior.InOrder)
 
+    val preloadNextTrack: StateFlow<Boolean> =
+        userPreferences.preloadNextTrack().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
     val keepScreenOn: StateFlow<Boolean> =
         userPreferences
             .keepScreenOn()
@@ -150,6 +153,10 @@ class SettingsViewModel(
 
     fun setReplayGainPreamp(value: Float) {
         viewModelScope.launch { userPreferences.setReplayGainPreampDb(value) }
+    }
+
+    fun setPreloadNextTrack(enabled: Boolean) {
+        viewModelScope.launch { userPreferences.setPreloadNextTrack(enabled) }
     }
 
     fun setKeepScreenOn(enabled: Boolean) {

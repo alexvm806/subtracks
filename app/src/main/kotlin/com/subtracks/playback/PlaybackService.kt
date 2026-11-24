@@ -34,6 +34,8 @@ import com.google.common.util.concurrent.ListenableFuture
 import com.subtracks.MainActivity
 import com.subtracks.R
 import com.subtracks.UserAgent
+import com.subtracks.data.net.NetworkMode
+import com.subtracks.data.net.networkMode
 import com.subtracks.data.prefs.UserPreferences
 import com.subtracks.data.repo.LibraryRepository
 import com.subtracks.data.repo.SourceRepository
@@ -47,6 +49,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 import org.koin.core.context.GlobalContext
@@ -146,6 +149,18 @@ class PlaybackService : MediaSessionService() {
                         sleepTimer.cancel()
                     }
                 }
+            }
+        }
+        scope.launch {
+            combine(preferences.preloadNextTrack(), networkMode(applicationContext), sources.offline) { enabled, mode, offline ->
+                enabled && mode == NetworkMode.Wifi && !offline
+            }.distinctUntilChanged().collect { preload ->
+                exoPlayer.preloadConfiguration =
+                    if (preload) {
+                        ExoPlayer.PreloadConfiguration(3_000_000L)
+                    } else {
+                        ExoPlayer.PreloadConfiguration.DEFAULT
+                    }
             }
         }
         exoPlayer.addListener(

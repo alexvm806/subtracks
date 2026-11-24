@@ -127,6 +127,7 @@ fun SettingsRoute(
     val downloadQuality by viewModel.downloadQuality.collectAsStateWithLifecycle()
     val downloadOverMetered by viewModel.downloadOverMetered.collectAsStateWithLifecycle()
     val scrobbling by viewModel.scrobbling.collectAsStateWithLifecycle()
+    val preloadNextTrack by viewModel.preloadNextTrack.collectAsStateWithLifecycle()
     val keepScreenOn by viewModel.keepScreenOn.collectAsStateWithLifecycle()
     val offline by viewModel.offline.collectAsStateWithLifecycle()
     val verboseLogging by viewModel.verboseLogging.collectAsStateWithLifecycle()
@@ -152,6 +153,8 @@ fun SettingsRoute(
         sortNameMode = sortNameMode,
         songTapBehavior = songTapBehavior,
         keepScreenOn = keepScreenOn,
+        preloadNextTrack = preloadNextTrack,
+        onPreloadNextTrackChange = viewModel::setPreloadNextTrack,
         offline = offline,
         verboseLogging = verboseLogging,
         onSelectSource = viewModel::selectSource,
@@ -209,6 +212,8 @@ fun SettingsScreen(
     scrobbling: Boolean,
     modifier: Modifier = Modifier,
     keepScreenOn: Boolean = false,
+    preloadNextTrack: Boolean = false,
+    onPreloadNextTrackChange: (Boolean) -> Unit = {},
     offline: Boolean = false,
     verboseLogging: Boolean = false,
     syncMode: SyncMode = SyncMode.WifiOnly,
@@ -406,6 +411,14 @@ fun SettingsScreen(
                     supportingContent = { Text(replayGainPreampLabel(LocalResources.current, replayGainPreamp)) },
                     modifier = Modifier.clickable { dialog = SettingsDialog.ReplayGainPreamp },
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                )
+            }
+            item {
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.preload_next_title)) },
+                    supportingContent = { Text(stringResource(R.string.preload_next_summary)) },
+                    trailingContent = { Switch(checked = preloadNextTrack, onCheckedChange = onPreloadNextTrackChange) },
+                    modifier = Modifier.clickable { onPreloadNextTrackChange(!preloadNextTrack) },
                 )
             }
             item {

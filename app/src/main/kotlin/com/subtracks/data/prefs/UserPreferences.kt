@@ -191,12 +191,19 @@ class UserPreferences(
 
     private val replayGainPreampKey = floatPreferencesKey("replay_gain_preamp_db")
 
+    fun preloadNextTrack(): Flow<Boolean> = store.data.map { it[preloadNextTrackKey] ?: false }
+
+    suspend fun setPreloadNextTrack(enabled: Boolean) {
+        store.edit { it[preloadNextTrackKey] = enabled }
+    }
+
     fun keepScreenOn(): Flow<Boolean> = store.data.map { prefs -> prefs[keepScreenOnKey] ?: false }
 
     suspend fun setKeepScreenOn(enabled: Boolean) {
         store.edit { prefs -> prefs[keepScreenOnKey] = enabled }
     }
 
+    private val preloadNextTrackKey = booleanPreferencesKey("preload_next_unmetered")
     private val keepScreenOnKey = booleanPreferencesKey("keep_screen_on")
 
     fun sortNameMode(): Flow<SortNameMode> =
