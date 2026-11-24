@@ -45,6 +45,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
@@ -161,6 +162,19 @@ class PlaybackService : MediaSessionService() {
                     } else {
                         ExoPlayer.PreloadConfiguration.DEFAULT
                     }
+            }
+        }
+        scope.launch {
+            preferences.fadeSeconds().distinctUntilChanged().collectLatest { seconds ->
+                if (seconds > 0) {
+                    val fades = TrackFades(exoPlayer, scope, seconds)
+                    fades.start()
+                    try {
+                        awaitCancellation()
+                    } finally {
+                        fades.stop()
+                    }
+                }
             }
         }
         exoPlayer.addListener(

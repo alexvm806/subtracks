@@ -191,6 +191,14 @@ class UserPreferences(
 
     private val replayGainPreampKey = floatPreferencesKey("replay_gain_preamp_db")
 
+    fun fadeSeconds(): Flow<Int> = store.data.map { (it[fadeSecondsKey] ?: 0).coerceIn(0, 12) }
+
+    suspend fun setFadeSeconds(seconds: Int) {
+        store.edit { it[fadeSecondsKey] = seconds.coerceIn(0, 12) }
+    }
+
+    private val fadeSecondsKey = intPreferencesKey("sequential_fade_seconds")
+
     fun preloadNextTrack(): Flow<Boolean> = store.data.map { it[preloadNextTrackKey] ?: false }
 
     suspend fun setPreloadNextTrack(enabled: Boolean) {

@@ -88,6 +88,13 @@ class SettingsViewModel(
             .songTapBehavior()
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SongTapBehavior.InOrder)
 
+    val fadeSeconds: StateFlow<Int> =
+        userPreferences.fadeSeconds().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
+
+    fun setFadeSeconds(seconds: Int) {
+        viewModelScope.launch { userPreferences.setFadeSeconds(seconds) }
+    }
+
     val preloadNextTrack: StateFlow<Boolean> =
         userPreferences.preloadNextTrack().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 

@@ -380,7 +380,7 @@
     <string name="sleep_extend">Add 5 minutes</string>
     <string name="sleep_tracks_left">Tracks remaining: %1$d</string>
     <string name="sleep_minutes">%1$d min</string>
-    <string name="sleep_end_song">End of this song</string>
+    <string name="sleep_end_song">End of track</string>
     <string name="sleep_custom">Custom amount</string>
     <string name="sleep_custom_minutes">Minutes</string>
     <string name="sleep_custom_tracks">Tracks</string>
@@ -396,4 +396,7 @@
     <string name="sleep_end_queue">End of queue</string>
     <string name="preload_next_title">Preload next track</string>
     <string name="preload_next_summary">Prepare up to 3 seconds of the next track on unmetered connections. Off in offline mode.</string>
+    <string name="track_fade_title">Fade out and fade in</string>
+    <string name="track_fade_duration">%1$d seconds</string>
+    <string name="track_fade_help">Fade between tracks during automatic playback. Tracks from the same album play continuously.</string>
 </resources>

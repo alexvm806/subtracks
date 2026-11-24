@@ -23,7 +23,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
-import androidx.compose.material.icons.rounded.Bedtime
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.MoreHoriz
@@ -230,6 +229,7 @@ fun NowPlayingRoute(
                 }
             },
             setStar = setStar,
+            sleepTimer = { showTimer = true },
             viewAlbum = onViewAlbum,
             viewArtist = onViewArtist,
         )
@@ -293,7 +293,6 @@ fun NowPlayingRoute(
         starred = song?.starred != null,
         onToggleStar = song?.let { s -> { setStar(StarType.Song, s.id, s.starred == null) } },
         onSeek = controller::seekTo,
-        onTimer = { showTimer = true },
         expansion = expansion,
         streamFormat =
             remember(state.item?.id, state.isPlaying, state.isBuffering) {
@@ -309,13 +308,7 @@ fun NowPlayingRoute(
     )
 
     if (showTimer) {
-        val queueLabel =
-            when (queueContext?.kind) {
-                QueueKind.Playlist -> R.string.sleep_end_playlist
-                QueueKind.Album -> R.string.sleep_end_album
-                else -> R.string.sleep_end_queue
-            }
-        SleepTimerDialog(controller.sleepTimer, stringResource(queueLabel)) { showTimer = false }
+        SleepTimerDialog(controller.sleepTimer) { showTimer = false }
     }
     if (showArtistChooser) {
         ArtistChooserSheet(
@@ -345,7 +338,6 @@ fun NowPlayingScreen(
     modifier: Modifier = Modifier,
     keepScreenOn: Boolean = false,
     onSkipPrevious: () -> Unit = onPrevious,
-    onTimer: (() -> Unit)? = null,
     streamFormat: String? = null,
     expansion: PlayerExpansion? = null,
     onShuffle: () -> Unit = {},
@@ -769,11 +761,6 @@ fun NowPlayingScreen(
                                     modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
                                     maxLines = 2,
                                 )
-                            }
-                            if (onTimer != null) {
-                                IconButton(onClick = onTimer) {
-                                    Icon(Icons.Rounded.Bedtime, contentDescription = stringResource(R.string.sleep_timer))
-                                }
                             }
                             IconButton(onClick = onMore, modifier = Modifier.size(48.dp)) {
                                 Icon(
