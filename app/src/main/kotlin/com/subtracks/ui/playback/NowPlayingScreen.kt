@@ -638,7 +638,8 @@ fun NowPlayingScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                         ) {
                             Text(formatTime(positionMs), style = MaterialTheme.typography.bodySmall)
-                            Text("−${formatTime((state.durationMs - positionMs).coerceAtLeast(0L))}", style = MaterialTheme.typography.bodySmall)
+                            val remaining = (state.durationMs - positionMs).coerceAtLeast(0L)
+                            Text("−${formatTime(remaining)}", style = MaterialTheme.typography.bodySmall)
                         }
                         Row(
                             modifier = Modifier.fillMaxWidth().padding(top = 2.dp, bottom = 8.dp),

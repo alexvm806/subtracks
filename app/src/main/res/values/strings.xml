@@ -386,5 +386,6 @@
     <string name="sleep_custom_minutes">Minutes</string>
     <string name="sleep_custom_tracks">Tracks</string>
     <string name="sleep_cancel">Cancel timer</string>
-    <string name="playing_format">Stream · %1$s</string>
+    <string name="playing_format">Playing · %1$s</string>
+    <string name="liked_songs">Liked Songs</string>
 </resources>

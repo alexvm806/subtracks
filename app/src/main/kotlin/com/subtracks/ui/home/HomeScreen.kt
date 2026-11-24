@@ -29,6 +29,8 @@ import androidx.compose.material.icons.automirrored.rounded.TrendingUp
 import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.Category
+import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.Groups
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.LibraryAdd
@@ -84,6 +86,7 @@ import com.subtracks.ui.components.MenuTarget
 import com.subtracks.ui.library.SongRow
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
+import java.util.Calendar
 
 enum class HomeSection(
     @param:StringRes val title: Int,
@@ -163,6 +166,7 @@ fun HomeRoute(
             onAlbumClick = onAlbumClick,
             onArtistClick = onArtistClick,
             onPlayStarred = viewModel::playStarred,
+            onOpenDownloads = { onDownloadedMore(OfflineListKind.Songs) },
             onLongClick = onLongClick,
             onMore = onMore,
             onGenreClick = onGenreClick,
@@ -184,6 +188,7 @@ fun HomeScreen(
     onAlbumClick: (Album) -> Unit = {},
     onArtistClick: (Artist) -> Unit = {},
     onPlayStarred: (Song) -> Unit = {},
+    onOpenDownloads: (() -> Unit)? = null,
     onLongClick: (MenuTarget) -> Unit = {},
     onMore: (HomeSection) -> Unit = {},
     onGenreClick: (String) -> Unit = {},
@@ -209,6 +214,25 @@ fun HomeScreen(
             contentPadding = PaddingValues(top = topInset + 8.dp, bottom = bottomInset + 24.dp),
         ) {
             homeTitle()
+            item(key = "home-shortcuts") {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    AssistChip(
+                        onClick = { onMore(HomeSection.RecentlyStarredSongs) },
+                        label = { Text(stringResource(R.string.liked_songs)) },
+                        leadingIcon = { Icon(Icons.Rounded.Favorite, contentDescription = null) },
+                    )
+                    if (onOpenDownloads != null) {
+                        AssistChip(
+                            onClick = onOpenDownloads,
+                            label = { Text(stringResource(R.string.downloads_title)) },
+                            leadingIcon = { Icon(Icons.Rounded.Download, contentDescription = null) },
+                        )
+                    }
+                }
+            }
             feed.rediscoverAlbums.firstOrNull()?.let { album ->
                 item(key = "featured-rediscovery") {
                     val art = coverArt(album.coverArt, true)
@@ -335,7 +359,7 @@ private fun LazyListScope.homeTitle() {
             )
             Spacer(Modifier.width(8.dp))
             val greeting =
-                when (java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)) {
+                when (Calendar.getInstance().get(Calendar.HOUR_OF_DAY)) {
                     in 5..11 -> R.string.greeting_morning
                     in 12..17 -> R.string.greeting_afternoon
                     else -> R.string.greeting_evening

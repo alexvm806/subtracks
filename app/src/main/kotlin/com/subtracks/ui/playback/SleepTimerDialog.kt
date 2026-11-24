@@ -56,8 +56,13 @@ internal fun SleepTimerDialog(
                         TextButton(onClick = timer::extend) { Text(stringResource(R.string.sleep_extend)) }
                     }
 
-                    is SleepLimit.Tracks -> Text(stringResource(R.string.sleep_tracks_left, limit.remaining))
-                    null -> Unit
+                    is SleepLimit.Tracks -> {
+                        Text(stringResource(R.string.sleep_tracks_left, limit.remaining))
+                    }
+
+                    null -> {
+                        Unit
+                    }
                 }
                 listOf(listOf(5, 10, 15, 30), listOf(45, 60, 90)).forEach { row ->
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {

@@ -238,6 +238,7 @@ private fun MainNavigation() {
     LaunchedEffect(section) {
         section?.takeUnless { it == LibraryTab.Home }?.let { lastLibrarySection = it }
     }
+
     fun openDestination(route: String) {
         if (currentRoute == route) return
         navController.navigate(route) {
@@ -245,6 +246,7 @@ private fun MainNavigation() {
             launchSingleTop = true
         }
     }
+
     val playbackController = koinInject<PlaybackController>()
     val nowPlayingLauncher = koinInject<NowPlayingLauncher>()
     val libraryRepository = koinInject<LibraryRepository>()
