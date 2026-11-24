@@ -387,4 +387,11 @@
     <string name="sleep_cancel">Cancel timer</string>
     <string name="playing_format">Playing · %1$s</string>
     <string name="liked_songs">Liked Songs</string>
+    <plurals name="sleep_hours">
+        <item quantity="one">%d hour</item>
+        <item quantity="other">%d hours</item>
+    </plurals>
+    <string name="sleep_end_playlist">End of playlist</string>
+    <string name="sleep_end_album">End of album</string>
+    <string name="sleep_end_queue">End of queue</string>
 </resources>

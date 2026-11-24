@@ -308,7 +308,15 @@ fun NowPlayingRoute(
         modifier = modifier,
     )
 
-    if (showTimer) SleepTimerDialog(controller.sleepTimer) { showTimer = false }
+    if (showTimer) {
+        val queueLabel =
+            when (queueContext?.kind) {
+                QueueKind.Playlist -> R.string.sleep_end_playlist
+                QueueKind.Album -> R.string.sleep_end_album
+                else -> R.string.sleep_end_queue
+            }
+        SleepTimerDialog(controller.sleepTimer, stringResource(queueLabel)) { showTimer = false }
+    }
     if (showArtistChooser) {
         ArtistChooserSheet(
             artists = song?.artistRefs.orEmpty(),

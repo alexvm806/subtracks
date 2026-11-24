@@ -5,6 +5,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
 sealed interface SleepLimit {
+    data object QueueEnd : SleepLimit
+
     data class Deadline(
         val elapsedMs: Long,
     ) : SleepLimit
@@ -28,6 +30,10 @@ class SleepTimer(
     fun tracks(count: Int) {
         require(count in 1..999)
         active.value = SleepLimit.Tracks(count)
+    }
+
+    fun atQueueEnd() {
+        active.value = SleepLimit.QueueEnd
     }
 
     fun extend() {

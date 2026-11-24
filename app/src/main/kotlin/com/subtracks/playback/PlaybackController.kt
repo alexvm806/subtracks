@@ -203,6 +203,9 @@ class PlaybackController(
             }
         }
         scope.launch {
+            sleepTimer.limit.collect { applyRepeatOne() }
+        }
+        scope.launch {
             sourceRepository.offline.collect { reloadForOffline() }
         }
         scope.launch {
@@ -993,7 +996,7 @@ class PlaybackController(
                 RepeatMode.One -> RepeatMode.Off
             }
         repeatMode = next
-        player?.setRepeatOne(next == RepeatMode.One)
+        applyRepeatOne()
         scope.launch { queueRepository.setRepeat(next.ordinal) }
         refresh()
     }
@@ -1140,7 +1143,7 @@ class PlaybackController(
                     SongTapBehavior.Shuffle -> true
                 }
             repeatMode = modes.repeat.toRepeatMode()
-            player?.setRepeatOne(repeatMode == RepeatMode.One)
+            applyRepeatOne()
             replace(listOf(entry))
             val snapshot = snapshot()
             this@PlaybackController.snapshot = snapshot
@@ -1173,7 +1176,7 @@ class PlaybackController(
             val modes = queueRepository.modes()
             shuffleEnabled = modes.shuffle
             repeatMode = modes.repeat.toRepeatMode()
-            player?.setRepeatOne(repeatMode == RepeatMode.One)
+            applyRepeatOne()
             var snapshot = snapshot()
             if (shuffleEnabled && !snapshot.shuffled && snapshot.contextSize > 0L) {
                 val start = snapshot.anchorContextPlay(queueRepository.cursor()).coerceIn(0, snapshot.contextSize - 1)
@@ -1892,6 +1895,17 @@ class PlaybackController(
             }
         }
 
+    private fun applyRepeatOne() {
+        player?.setRepeatOne(repeatMode == RepeatMode.One && sleepTimer.limit.value != SleepLimit.QueueEnd)
+    }
+
+    private fun finishQueueTimer(): Boolean {
+        if (sleepTimer.limit.value != SleepLimit.QueueEnd) return false
+        player?.pause()
+        sleepTimer.cancel()
+        return true
+    }
+
     private fun handleEnded() {
         if (endedHandled) return
         endedHandled = true
@@ -1914,6 +1928,7 @@ class PlaybackController(
                     if (!endJobIsCurrent(endedSnapshot, endedPosition)) return@withMutationLock
                     val snapshot = this@PlaybackController.snapshot ?: return@withMutationLock
                     if (detachedWindow && detachedPosition == null) {
+                        if (finishQueueTimer()) return@withMutationLock
                         val target = if (repeatMode == RepeatMode.All) downloadedAtOrAfter(snapshot, 0L) else null
                         if (target != null) {
                             jumpToLocked(target, requestedVersion)
@@ -1924,20 +1939,24 @@ class PlaybackController(
                     }
                     val current = endedPosition ?: return@withMutationLock
                     val from = if (detachedWindow) current else current + 1
-                    val target =
-                        downloadedAtOrAfter(snapshot, from)
-                            ?: if (repeatMode == RepeatMode.All) downloadedAtOrAfter(snapshot, 0L) else null
+                    val forward = downloadedAtOrAfter(snapshot, from)
+                    if (forward == null && finishQueueTimer()) return@withMutationLock
+                    val target = forward ?: if (repeatMode == RepeatMode.All) downloadedAtOrAfter(snapshot, 0L) else null
                     target?.let { jumpToLocked(it, requestedVersion) }
                 }
             }
             return
         }
-        if (repeatMode == RepeatMode.All) {
+        if (repeatMode == RepeatMode.All || sleepTimer.limit.value == SleepLimit.QueueEnd) {
             scope.launch {
                 queueRepository.withMutationLock {
                     if (!endJobIsCurrent(endedSnapshot, endedPosition)) return@withMutationLock
-                    if (repeatMode != RepeatMode.All) return@withMutationLock
-                    jumpToLocked(0, requestedVersion)
+                    if (sleepTimer.limit.value == SleepLimit.QueueEnd) {
+                        val next = (endedPosition ?: return@withMutationLock) + 1
+                        if (next < endedSnapshot.size) jumpToLocked(next, requestedVersion) else finishQueueTimer()
+                    } else if (repeatMode == RepeatMode.All) {
+                        jumpToLocked(0, requestedVersion)
+                    }
                 }
             }
         }

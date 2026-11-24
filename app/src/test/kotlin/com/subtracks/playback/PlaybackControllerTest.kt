@@ -1679,6 +1679,22 @@ class PlaybackControllerTest {
     }
 
     @Test
+    fun queueTimerStopsBeforeRepeatAllWraps() {
+        seedAlbum(3, sourceId = 1)
+        controller.playAlbum(1, "al1", 2)
+        await { controller.state.value.isPlaying }
+        controller.cycleRepeat()
+        controller.sleepTimer.atQueueEnd()
+
+        handle.finish()
+        await { controller.sleepTimer.limit.value == null && !controller.state.value.isPlaying }
+
+        assertFalse(controller.state.value.isPlaying)
+        assertEquals("s3", handle.currentItem?.id)
+        assertEquals(RepeatMode.All, controller.state.value.repeat)
+    }
+
+    @Test
     fun thePlayerReportsStoppedWhenTheQueueEnds() {
         seedAlbum(1, sourceId = 1)
 
