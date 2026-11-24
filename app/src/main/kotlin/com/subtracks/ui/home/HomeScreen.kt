@@ -334,7 +334,13 @@ private fun LazyListScope.homeTitle() {
                 modifier = Modifier.size(32.dp),
             )
             Spacer(Modifier.width(8.dp))
-            Text(text = stringResource(R.string.listening_room), style = MaterialTheme.typography.headlineMedium)
+            val greeting =
+                when (java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)) {
+                    in 5..11 -> R.string.greeting_morning
+                    in 12..17 -> R.string.greeting_afternoon
+                    else -> R.string.greeting_evening
+                }
+            Text(text = stringResource(greeting), style = MaterialTheme.typography.headlineMedium)
         }
     }
 }

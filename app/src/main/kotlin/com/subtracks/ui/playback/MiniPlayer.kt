@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -39,6 +38,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.subtracks.R
@@ -66,9 +66,12 @@ fun MiniPlayer(
     progressInset: Boolean = false,
     onExpandDrag: (Float) -> Unit = {},
     onExpandRelease: (Float) -> Unit = {},
+    onSwipePrevious: (() -> Unit)? = null,
 ) {
     val item = state.item ?: return
     var dragUpPx by remember { mutableFloatStateOf(0f) }
+    var dragSidePx by remember { mutableFloatStateOf(0f) }
+    val swipeThreshold = with(LocalDensity.current) { 48.dp.toPx() }
     val progress = if (state.durationMs > 0) (positionMs.toFloat() / state.durationMs).coerceIn(0f, 1f) else 0f
     val progressInsetDp by animateDpAsState(
         targetValue = if (progressInset) PROGRESS_INSET else 0.dp,
@@ -102,6 +105,18 @@ fun MiniPlayer(
                             onExpandRelease(velocity)
                             dragUpPx = 0f
                         },
+                    ).draggable(
+                        orientation = Orientation.Horizontal,
+                        enabled = onSwipePrevious != null,
+                        state = rememberDraggableState { dragSidePx += it },
+                        onDragStarted = { dragSidePx = 0f },
+                        onDragStopped = {
+                            when {
+                                dragSidePx < -swipeThreshold && state.hasNext -> onNext()
+                                dragSidePx > swipeThreshold && state.hasPrevious -> onSwipePrevious?.invoke()
+                                else -> Unit
+                            }
+                        },
                     ).clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
@@ -122,7 +137,6 @@ fun MiniPlayer(
                     modifier =
                         Modifier
                             .fillMaxWidth()
-                            .navigationBarsPadding()
                             .padding(start = 8.dp, top = 8.dp, end = 8.dp, bottom = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp),

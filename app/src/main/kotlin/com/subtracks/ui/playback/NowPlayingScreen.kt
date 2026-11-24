@@ -33,8 +33,8 @@ import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material.icons.rounded.ShuffleOn
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SkipPrevious
-import androidx.compose.material.icons.rounded.Star
-import androidx.compose.material.icons.rounded.StarBorder
+import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -590,7 +590,7 @@ fun NowPlayingScreen(
                             }
                             IconButton(onClick = { onToggleStar?.invoke() }, enabled = onToggleStar != null) {
                                 Icon(
-                                    imageVector = if (starred) Icons.Rounded.Star else Icons.Rounded.StarBorder,
+                                    imageVector = if (starred) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
                                     contentDescription = stringResource(if (starred) R.string.actions_unstar else R.string.actions_star),
                                     tint =
                                         if (starred) {
@@ -623,7 +623,7 @@ fun NowPlayingScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                         ) {
                             Text(formatTime(positionMs), style = MaterialTheme.typography.bodySmall)
-                            Text(formatTime(state.durationMs), style = MaterialTheme.typography.bodySmall)
+                            Text("−${formatTime((state.durationMs - positionMs).coerceAtLeast(0L))}", style = MaterialTheme.typography.bodySmall)
                         }
                         Row(
                             modifier = Modifier.fillMaxWidth().padding(top = 2.dp, bottom = 8.dp),
