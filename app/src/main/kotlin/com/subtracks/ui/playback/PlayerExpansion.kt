@@ -27,15 +27,15 @@ internal fun Modifier.captureAnchor(onBounds: (Rect) -> Unit): Modifier =
     onGloballyPositioned { onBounds(Rect(it.positionInRoot(), it.size.toSize())) }
 
 @Composable
-internal fun expansionModifier(
+internal fun Modifier.playerExpansion(
     transition: PlayerExpansion?,
     root: () -> LayoutCoordinates?,
     anchor: () -> Rect?,
     artwork: Boolean = false,
 ): Modifier {
-    if (transition == null) return Modifier
+    if (transition == null) return this
     var target by remember { mutableStateOf<Rect?>(null) }
-    return Modifier
+    return this
         .onGloballyPositioned { child ->
             val parent = root()
             if (parent != null && parent.isAttached && child.isAttached) {

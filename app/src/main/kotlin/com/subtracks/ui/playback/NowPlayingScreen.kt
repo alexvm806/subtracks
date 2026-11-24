@@ -353,9 +353,9 @@ fun NowPlayingScreen(
     nextArt: NowPlayingArt? = null,
 ) {
     var screenCoordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
-    val coverMotion = expansionModifier(expansion, { screenCoordinates }, { expansion?.cover }, artwork = true)
-    val metadataMotion = expansionModifier(expansion, { screenCoordinates }, { expansion?.metadata })
-    val transportMotion = expansionModifier(expansion, { screenCoordinates }, { expansion?.transport })
+    val coverMotion = Modifier.playerExpansion(expansion, { screenCoordinates }, { expansion?.cover }, artwork = true)
+    val metadataMotion = Modifier.playerExpansion(expansion, { screenCoordinates }, { expansion?.metadata })
+    val transportMotion = Modifier.playerExpansion(expansion, { screenCoordinates }, { expansion?.transport })
     val playButtonSize = 72.dp
     val playCircleDiameter = playButtonSize * 20f / 24f
     val titleStyle =
