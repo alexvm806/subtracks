@@ -150,6 +150,7 @@ class PlaybackController(
     private val preferences: UserPreferences,
     private val showMessage: (UiMessage) -> Unit = {},
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
+    val sleepTimer: SleepTimer = SleepTimer(),
 ) {
     private val playbackDispatcher = scope.coroutineContext[ContinuationInterceptor] as CoroutineDispatcher
     private val _state = MutableStateFlow(PlaybackState())

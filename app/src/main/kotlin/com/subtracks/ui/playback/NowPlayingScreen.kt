@@ -23,6 +23,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
+import androidx.compose.material.icons.rounded.Bedtime
+import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material.icons.rounded.PauseCircle
 import androidx.compose.material.icons.rounded.PlayCircle
@@ -33,8 +36,6 @@ import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material.icons.rounded.ShuffleOn
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SkipPrevious
-import androidx.compose.material.icons.rounded.Favorite
-import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -205,6 +206,7 @@ fun NowPlayingRoute(
     val downloads by downloadRepository.states().collectAsStateWithLifecycle()
     val download = songId?.let { downloads[it] }
     val scope = rememberCoroutineScope()
+    var showTimer by remember { mutableStateOf(false) }
     var showArtistChooser by remember { mutableStateOf(false) }
     LaunchedEffect(songId) { showArtistChooser = false }
     val song by
@@ -288,10 +290,21 @@ fun NowPlayingRoute(
         starred = song?.starred != null,
         onToggleStar = song?.let { s -> { setStar(StarType.Song, s.id, s.starred == null) } },
         onSeek = controller::seekTo,
+        onTimer = { showTimer = true },
+        streamFormat =
+            remember(state.item?.id, state.isPlaying, state.isBuffering) {
+                controller.currentAudioEncoding()?.let { encoding ->
+                    listOfNotNull(
+                        encoding.format?.takeIf { it.isNotBlank() },
+                        encoding.sampleRate?.takeIf { it > 0 }?.let { "$it Hz" },
+                    ).joinToString(" · ").ifBlank { null }
+                }
+            },
         keepScreenOn = keepScreenOn,
         modifier = modifier,
     )
 
+    if (showTimer) SleepTimerDialog(controller.sleepTimer) { showTimer = false }
     if (showArtistChooser) {
         ArtistChooserSheet(
             artists = song?.artistRefs.orEmpty(),
@@ -320,6 +333,8 @@ fun NowPlayingScreen(
     modifier: Modifier = Modifier,
     keepScreenOn: Boolean = false,
     onSkipPrevious: () -> Unit = onPrevious,
+    onTimer: (() -> Unit)? = null,
+    streamFormat: String? = null,
     onShuffle: () -> Unit = {},
     onRepeat: () -> Unit = {},
     onMore: () -> Unit = {},
@@ -726,7 +741,20 @@ fun NowPlayingScreen(
                                     modifier = Modifier.size(30.dp),
                                 )
                             }
-                            IconButton(onClick = onMore, modifier = Modifier.size(40.dp)) {
+                            if (streamFormat != null) {
+                                Text(
+                                    text = stringResource(R.string.playing_format, streamFormat),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
+                                    maxLines = 2,
+                                )
+                            }
+                            if (onTimer != null) {
+                                IconButton(onClick = onTimer) {
+                                    Icon(Icons.Rounded.Bedtime, contentDescription = stringResource(R.string.sleep_timer))
+                                }
+                            }
+                            IconButton(onClick = onMore, modifier = Modifier.size(48.dp)) {
                                 Icon(
                                     imageVector = Icons.Rounded.MoreHoriz,
                                     contentDescription = stringResource(R.string.controls_more),
