@@ -67,6 +67,7 @@ fun MiniPlayer(
     onExpandDrag: (Float) -> Unit = {},
     onExpandRelease: (Float) -> Unit = {},
     onSwipePrevious: (() -> Unit)? = null,
+    expansion: PlayerExpansion? = null,
 ) {
     val item = state.item ?: return
     var dragUpPx by remember { mutableFloatStateOf(0f) }
@@ -144,9 +145,9 @@ fun MiniPlayer(
                     CoverArt(
                         ref = coverArt,
                         name = item.title,
-                        modifier = Modifier.size(48.dp).clip(RoundedCornerShape(6.dp)),
+                        modifier = Modifier.size(48.dp).captureAnchor { expansion?.cover = it }.clip(RoundedCornerShape(6.dp)),
                     )
-                    Column(Modifier.weight(1f)) {
+                    Column(Modifier.weight(1f).captureAnchor { expansion?.metadata = it }) {
                         Text(
                             text = item.title,
                             style = MaterialTheme.typography.titleMedium,
@@ -163,7 +164,10 @@ fun MiniPlayer(
                         )
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        FilledIconButton(onClick = onPlayPause, modifier = Modifier.size(48.dp)) {
+                        FilledIconButton(
+                            onClick = onPlayPause,
+                            modifier = Modifier.size(48.dp).captureAnchor { expansion?.transport = it },
+                        ) {
                             if (state.isBuffering && state.isPlaying) {
                                 CircularProgressIndicator(
                                     color = MaterialTheme.colorScheme.onPrimary,

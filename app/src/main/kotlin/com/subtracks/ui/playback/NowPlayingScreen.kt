@@ -62,6 +62,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.keepScreenOn
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
@@ -193,6 +195,7 @@ fun NowPlayingRoute(
     modifier: Modifier = Modifier,
     contextMenuHost: ContextMenuHost? = null,
     setStar: (StarType, String, Boolean) -> Unit,
+    expansion: PlayerExpansion? = null,
     controller: PlaybackController = koinInject(),
     libraryRepository: LibraryRepository = koinInject(),
     downloadRepository: DownloadRepository = koinInject(),
@@ -291,6 +294,7 @@ fun NowPlayingRoute(
         onToggleStar = song?.let { s -> { setStar(StarType.Song, s.id, s.starred == null) } },
         onSeek = controller::seekTo,
         onTimer = { showTimer = true },
+        expansion = expansion,
         streamFormat =
             remember(state.item?.id, state.isPlaying, state.isBuffering) {
                 controller.currentAudioEncoding()?.let { encoding ->
@@ -335,6 +339,7 @@ fun NowPlayingScreen(
     onSkipPrevious: () -> Unit = onPrevious,
     onTimer: (() -> Unit)? = null,
     streamFormat: String? = null,
+    expansion: PlayerExpansion? = null,
     onShuffle: () -> Unit = {},
     onRepeat: () -> Unit = {},
     onMore: () -> Unit = {},
@@ -347,6 +352,10 @@ fun NowPlayingScreen(
     previousArt: NowPlayingArt? = null,
     nextArt: NowPlayingArt? = null,
 ) {
+    var screenCoordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
+    val coverMotion = expansionModifier(expansion, { screenCoordinates }, { expansion?.cover }, artwork = true)
+    val metadataMotion = expansionModifier(expansion, { screenCoordinates }, { expansion?.metadata })
+    val transportMotion = expansionModifier(expansion, { screenCoordinates }, { expansion?.transport })
     val playButtonSize = 72.dp
     val playCircleDiameter = playButtonSize * 20f / 24f
     val titleStyle =
@@ -413,6 +422,7 @@ fun NowPlayingScreen(
             Box(
                 modifier
                     .fillMaxSize()
+                    .onGloballyPositioned { screenCoordinates = it }
                     .background(MaterialTheme.colorScheme.background)
                     .then(if (keepScreenOn) Modifier.keepScreenOn() else Modifier),
             ) {
@@ -537,6 +547,7 @@ fun NowPlayingScreen(
                                         modifier =
                                             Modifier
                                                 .fillMaxSize()
+                                                .then(if (index == 1) coverMotion else Modifier)
                                                 .graphicsLayer {
                                                     translationX = (index - 1) * stridePx + swipeOffsetX
                                                 }.then(
@@ -575,6 +586,7 @@ fun NowPlayingScreen(
                                 modifier =
                                     Modifier
                                         .weight(1f)
+                                        .then(metadataMotion)
                                         .clickable(
                                             interactionSource = remember { MutableInteractionSource() },
                                             indication = null,
@@ -678,7 +690,7 @@ fun NowPlayingScreen(
                                     modifier = Modifier.size(32.dp),
                                 )
                             }
-                            IconButton(onClick = onPlayPause, modifier = Modifier.size(playButtonSize)) {
+                            IconButton(onClick = onPlayPause, modifier = Modifier.size(playButtonSize).then(transportMotion)) {
                                 if (state.isBuffering && state.isPlaying) {
                                     Box(
                                         modifier =

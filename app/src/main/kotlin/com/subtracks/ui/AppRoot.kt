@@ -99,6 +99,7 @@ import com.subtracks.ui.library.LibraryViewModel
 import com.subtracks.ui.library.PlaylistDetailRoute
 import com.subtracks.ui.playback.MiniPlayer
 import com.subtracks.ui.playback.NowPlayingRoute
+import com.subtracks.ui.playback.PlayerExpansion
 import com.subtracks.ui.playback.QueueRoute
 import com.subtracks.ui.search.SearchRoute
 import com.subtracks.ui.settings.AddSourceRoute
@@ -258,6 +259,13 @@ private fun MainNavigation() {
     var nowPlayingProgress by remember { mutableFloatStateOf(0f) }
     var miniPlayerTopPx by remember { mutableFloatStateOf(0f) }
     var nowPlayingFadeOut by remember { mutableStateOf(false) }
+    val expansion =
+        remember {
+            PlayerExpansion(
+                progress = { if (nowPlayingFadeOut) 1f else nowPlayingProgress },
+                sheetStartY = { miniPlayerTopPx },
+            )
+        }
     var settleJob by remember { mutableStateOf<Job?>(null) }
     val scope = rememberCoroutineScope()
     val contextMenuHost = remember { ContextMenuHost() }
@@ -711,6 +719,7 @@ private fun MainNavigation() {
                         onNext = playbackController::next,
                         progressInset = true,
                         onSwipePrevious = playbackController::previousTrack,
+                        expansion = expansion,
                         onExpandDrag = { dragUpPx ->
                             nowPlayingOpen = true
                             settleJob?.cancel()
@@ -781,6 +790,7 @@ private fun MainNavigation() {
                             ),
                 ) {
                     NowPlayingRoute(
+                        expansion = expansion,
                         onBack = { settleNowPlaying(false) },
                         onQueue = { showingQueue = true },
                         onViewAlbum = { albumId ->

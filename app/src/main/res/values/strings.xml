@@ -371,7 +371,6 @@
         <item quantity="other">%1$d plays</item>
     </plurals>
 
-    <string name="listening_room">Listening room</string>
     <string name="your_library">Your Library</string>
     <string name="greeting_morning">Good morning</string>
     <string name="greeting_afternoon">Good afternoon</string>
