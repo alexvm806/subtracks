@@ -304,7 +304,8 @@ fun HomeScreen(
                     val tiles =
                         moodTags.mapNotNull { (label, tags) ->
                             val matches = feed.genres.filter { it.trim().lowercase() in tags }
-                            if (matches.isEmpty()) null else HomeShortcut(stringResource(label), Icons.Rounded.Casino) { onPlayMood(matches) }
+                            if (matches.isEmpty()) return@mapNotNull null
+                            HomeShortcut(stringResource(label), Icons.Rounded.Casino) { onPlayMood(matches) }
                         }
                     if (tiles.isEmpty()) Text(stringResource(R.string.mood_empty), modifier = Modifier.padding(16.dp))
                     ShortcutGrid(tiles)
