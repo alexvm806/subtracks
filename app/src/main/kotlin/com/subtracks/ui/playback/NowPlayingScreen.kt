@@ -88,6 +88,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.core.content.edit
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.LocalPlatformContext
 import com.subtracks.R
@@ -322,7 +323,7 @@ fun NowPlayingRoute(
                 var advance by remember { mutableIntStateOf(timing.getInt(timingKey, 0)) }
                 val adjust: (Int) -> Unit = { amount ->
                     advance = (advance + amount).coerceIn(-5000, 5000)
-                    timing.edit().putInt(timingKey, advance).apply()
+                    timing.edit { putInt(timingKey, advance) }
                 }
                 LyricsPanel(
                     advanceMs = advance,
