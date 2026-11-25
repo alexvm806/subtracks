@@ -27,6 +27,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.imeAnimationTarget
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.LibraryMusic
@@ -294,7 +295,10 @@ private fun MainNavigation() {
         if (id != null) previousSourceId = id
     }
 
-    fun settleNowPlaying(open: Boolean) {
+    fun settleNowPlaying(
+        open: Boolean,
+        velocity: Float = 0f,
+    ) {
         if (open) {
             nowPlayingOpen = true
             nowPlayingFadeOut = false
@@ -302,8 +306,13 @@ private fun MainNavigation() {
         settleJob?.cancel()
         settleJob =
             scope.launch {
-                animate(nowPlayingProgress, if (open) 1f else 0f, animationSpec = spring(dampingRatio = 1f, stiffness = 440f)) { value, _ ->
-                    nowPlayingProgress = value
+                animate(
+                    initialValue = nowPlayingProgress,
+                    targetValue = if (open) 1f else 0f,
+                    initialVelocity = -velocity / miniPlayerTopPx.coerceAtLeast(1f),
+                    animationSpec = spring(dampingRatio = 1f, stiffness = 240f),
+                ) { value, _ ->
+                    nowPlayingProgress = value.coerceIn(0f, 1f)
                 }
                 if (!open) nowPlayingOpen = false
             }
@@ -734,7 +743,9 @@ private fun MainNavigation() {
                                 nowPlayingProgress = (dragUpPx / miniPlayerTopPx).coerceIn(0f, 1f)
                             }
                         },
-                        onExpandRelease = { velocity -> settleNowPlaying(nowPlayingProgress > 0.35f || velocity < -FLING_VELOCITY) },
+                        onExpandRelease = { velocity ->
+                            settleNowPlaying(nowPlayingProgress > 0.35f || velocity < -FLING_VELOCITY, velocity)
+                        },
                         modifier = Modifier.onGloballyPositioned { miniPlayerTopPx = it.positionInRoot().y },
                     )
                 }
@@ -784,6 +795,9 @@ private fun MainNavigation() {
                         Modifier
                             .fillMaxSize()
                             .graphicsLayer {
+                                val corner = 24.dp * (1f - nowPlayingProgress)
+                                shape = RoundedCornerShape(topStart = corner, topEnd = corner)
+                                clip = nowPlayingProgress < 1f
                                 translationY = if (nowPlayingFadeOut) 0f else (1f - nowPlayingProgress) * miniPlayerTopPx
                                 alpha = if (nowPlayingFadeOut) nowPlayingProgress else (nowPlayingProgress / EXPAND_FADE).coerceAtMost(1f)
                             }.draggable(
@@ -795,7 +809,9 @@ private fun MainNavigation() {
                                             nowPlayingProgress = (nowPlayingProgress - delta / miniPlayerTopPx).coerceIn(0f, 1f)
                                         }
                                     },
-                                onDragStopped = { velocity -> settleNowPlaying(nowPlayingProgress > 0.65f && velocity < FLING_VELOCITY) },
+                                onDragStopped = { velocity ->
+                                    settleNowPlaying(nowPlayingProgress > 0.65f && velocity < FLING_VELOCITY, velocity)
+                                },
                             ),
                 ) {
                     NowPlayingRoute(

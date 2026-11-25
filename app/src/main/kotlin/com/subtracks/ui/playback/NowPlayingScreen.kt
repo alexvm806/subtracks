@@ -215,7 +215,8 @@ fun NowPlayingRoute(
     val download = songId?.let { downloads[it] }
     val scope = rememberCoroutineScope()
     val playerList = rememberLazyListState()
-    val openLyrics: () -> Unit = { scope.launch { playerList.animateScrollToItem(1) } }
+    var fullLyrics by remember { mutableStateOf(false) }
+    val openLyrics: () -> Unit = { fullLyrics = true }
     var showTimer by remember { mutableStateOf(false) }
     var showArtistChooser by remember { mutableStateOf(false) }
     LaunchedEffect(songId) { showArtistChooser = false }
@@ -271,6 +272,7 @@ fun NowPlayingRoute(
         withContext(Dispatchers.IO) { thumbnails.forEach { prefetchArtworkRatio(context, it) } }
         next?.thumbnailRef?.let { ArtworkSeedCache.prefetch(context, it) }
     }
+    val colors = rememberArtworkColors(thumbnail ?: art, fallbackName = state.item?.title)
     NowPlayingScreen(
         state = state,
         positionMs = positionMs,
@@ -280,7 +282,7 @@ fun NowPlayingRoute(
         previousArt = adjacent.previous,
         nextArt = adjacent.next,
         onSkipPrevious = controller::previousTrack,
-        artwork = rememberArtworkColors(thumbnail ?: art, fallbackName = state.item?.title),
+        artwork = colors,
         onBack = onBack,
         onQueue = onQueue,
         onPlayPause = controller::togglePlayPause,
@@ -334,6 +336,23 @@ fun NowPlayingRoute(
         modifier = modifier,
     )
 
+    val track = song
+    if (fullLyrics && track != null && track.id == songId && track.sourceId == sourceId) {
+        val sources: SourceRepository = koinInject()
+        val offline by sources.offline.collectAsStateWithLifecycle()
+        ArtworkTheme(colors) {
+            key(track.sourceId, track.id) {
+                LyricsDialog(
+                    title = track.title,
+                    positionMs = positionMs,
+                    offline = offline,
+                    load = { sources.lyrics(context.cacheDir, track.sourceId, track.id, track.artist, track.title) },
+                    onSeek = controller::seekTo,
+                    onDismiss = { fullLyrics = false },
+                )
+            }
+        }
+    }
     if (showTimer) {
         SleepTimerDialog(controller.sleepTimer) { showTimer = false }
     }

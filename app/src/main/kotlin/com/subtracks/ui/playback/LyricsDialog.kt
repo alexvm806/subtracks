@@ -1,16 +1,19 @@
 package com.subtracks.ui.playback
 
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -20,12 +23,16 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.subtracks.R
 import com.subtracks.data.source.subsonic.LyricLine
 import kotlinx.coroutines.CancellationException
@@ -39,16 +46,17 @@ internal fun LyricsDialog(
     onSeek: (Long) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(title) },
-        text = {
-            LyricsContent(positionMs, offline, load, onSeek)
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.info_close)) }
-        },
-    )
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surfaceContainerHigh) {
+            Column(modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 12.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(title, modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+                    TextButton(onClick = onDismiss) { Text(stringResource(R.string.info_close)) }
+                }
+                LyricsContent(positionMs, offline, load, onSeek, immersive = true)
+            }
+        }
+    }
 }
 
 @Composable
@@ -57,6 +65,7 @@ internal fun LyricsContent(
     offline: Boolean,
     load: suspend () -> List<LyricLine>,
     onSeek: (Long) -> Unit,
+    immersive: Boolean = false,
 ) {
     var lines by remember { mutableStateOf<List<LyricLine>?>(null) }
     var failed by remember { mutableStateOf(false) }
@@ -90,7 +99,7 @@ internal fun LyricsContent(
         }
 
         else -> {
-            LyricList(lyrics, positionMs, onSeek)
+            LyricList(lyrics, positionMs, onSeek, immersive)
         }
     }
 }
@@ -100,6 +109,7 @@ private fun LyricList(
     lyrics: List<LyricLine>,
     positionMs: Long,
     onSeek: (Long) -> Unit,
+    immersive: Boolean,
 ) {
     val state = rememberLazyListState()
     var follow by remember { mutableStateOf(true) }
@@ -114,13 +124,16 @@ private fun LyricList(
         }
     LaunchedEffect(dragged) { if (dragged) follow = false }
     LaunchedEffect(active, follow) {
-        if (follow && active >= 0) state.scrollToItem((active - 1).coerceAtLeast(0))
+        if (follow && active >= 0) {
+            val target = (active - if (immersive) 2 else 1).coerceAtLeast(0)
+            state.animateScrollToItem(target)
+        }
     }
     Column {
         if (synced && !follow) {
             TextButton(onClick = { follow = true }) { Text(stringResource(R.string.lyrics_follow)) }
         }
-        LazyColumn(modifier = Modifier.heightIn(max = 400.dp), state = state) {
+        LazyColumn(modifier = if (immersive) Modifier.fillMaxSize() else Modifier.heightIn(max = 400.dp), state = state) {
             itemsIndexed(lyrics) { index, line ->
                 val time = line.startMs
                 val seek =
@@ -141,6 +154,10 @@ private fun LyricList(
                             if (cue != null) addStyle(SpanStyle(color = highlight, fontWeight = FontWeight.Bold), cue.from, cue.until)
                         }
                     }
+                val ink by animateColorAsState(
+                    if (index == active || !synced) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+                    label = "lyric emphasis",
+                )
                 Text(
                     text = label,
                     modifier =
@@ -148,8 +165,10 @@ private fun LyricList(
                             .fillMaxWidth()
                             .then(seek)
                             .padding(vertical = 8.dp),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = if (index == active && line.cues.isEmpty()) highlight else MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = if (immersive) TextAlign.Center else TextAlign.Start,
+                    fontWeight = if (immersive) FontWeight.Bold else null,
+                    style = if (immersive) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.titleMedium,
+                    color = if (!immersive && index == active && line.cues.isEmpty()) highlight else ink,
                 )
             }
         }

@@ -165,7 +165,7 @@ class PlaybackController(
     private var player: PlayerHandle? = null
     private var connecting = false
     private var pendingPlay: PendingPlay? = null
-    private var pendingShuffle: QueueEntry? = null
+    private var pendingShuffle: List<QueueEntry>? = null
     private var positionJob: Job? = null
     private var windowJob: Job? = null
     private var bufferingJob: Job? = null
@@ -338,16 +338,27 @@ class PlaybackController(
 
     fun shuffleDownloaded(sourceId: Long) = shufflePlay(queueRepository.downloadedEntry(sourceId))
 
-    private fun shufflePlay(entry: QueueEntry) {
+    fun shuffleRecentAlbums(
+        sourceId: Long,
+        albumIds: List<String>,
+    ) {
+        val entries = albumIds.distinct().take(10).map { queueRepository.albumEntry(sourceId, it) }
+        if (entries.isNotEmpty()) shufflePlay(entries)
+    }
+
+    private fun shufflePlay(entry: QueueEntry) = shufflePlay(listOf(entry))
+
+    private fun shufflePlay(entries: List<QueueEntry>) {
         if (player == null) {
-            pendingShuffle = entry
+            pendingShuffle = entries
             connect()
             return
         }
-        scope.launch { startShuffled(entry) }
+        scope.launch { startShuffled(entries) }
     }
 
-    private suspend fun startShuffled(entry: QueueEntry) {
+    private suspend fun startShuffled(entries: List<QueueEntry>) {
+        val entry = entries.first()
         downloads.awaitLoaded()
         queueRepository.withMutationLock {
             windowJob?.cancel()
@@ -357,9 +368,9 @@ class PlaybackController(
             endedHandled = false
             val previous = snapshot
             val previousEntry = previous?.entries?.firstOrNull()?.entry
-            val same = previousEntry != null && previousEntry.kind == entry.kind && previousEntry.refId == entry.refId
+            val same = entries.size == 1 && previousEntry == entry
             val avoid = if (same) currentQueuePosition()?.let { previous.flatContext(previous.anchorContextPlay(it)) } else null
-            replace(listOf(entry))
+            replace(entries)
             var snap = snapshot()
             if (snap.contextSize == 0L) {
                 stopLocked()

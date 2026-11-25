@@ -493,6 +493,17 @@ interface LibraryDao {
     ): Flow<List<AlbumSongItem>>
 
     @Query(
+        "SELECT songs.*, albums.coverArt AS coverArt FROM songs " +
+            "LEFT JOIN albums ON albums.sourceId = songs.sourceId AND albums.id = songs.albumId " +
+            "WHERE songs.sourceId = :sourceId AND songs.played IS NOT NULL " +
+            "ORDER BY songs.played DESC, songs.sortName COLLATE NOCASE, songs.id LIMIT :limit",
+    )
+    fun recentlyPlayedSongs(
+        sourceId: Long,
+        limit: Int,
+    ): Flow<List<AlbumSongItem>>
+
+    @Query(
         "SELECT * FROM albums WHERE sourceId = :sourceId AND $ALBUM_SEARCH_FILTER " +
             "ORDER BY $ALBUM_ORDER_BY_NAME_SORT_MODE LIMIT :limit",
     )

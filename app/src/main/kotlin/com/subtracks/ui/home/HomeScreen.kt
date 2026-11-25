@@ -38,6 +38,7 @@ import androidx.compose.material.icons.rounded.LocalFireDepartment
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Replay
+import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Icon
@@ -166,6 +167,11 @@ fun HomeRoute(
             onAlbumClick = onAlbumClick,
             onArtistClick = onArtistClick,
             onPlayStarred = viewModel::playStarred,
+            onPlayRecent = { playbackController.playSong(it.sourceId, it.id) },
+            onShuffleRecent = {
+                val albums = feed.recentlyAddedAlbums
+                albums.firstOrNull()?.let { playbackController.shuffleRecentAlbums(it.sourceId, albums.map(Album::id)) }
+            },
             onOpenDownloads = { onDownloadedMore(OfflineListKind.Songs) },
             onLongClick = onLongClick,
             onMore = onMore,
@@ -189,6 +195,8 @@ fun HomeScreen(
     onArtistClick: (Artist) -> Unit = {},
     onPlayStarred: (Song) -> Unit = {},
     onOpenDownloads: (() -> Unit)? = null,
+    onPlayRecent: (Song) -> Unit = {},
+    onShuffleRecent: (() -> Unit)? = null,
     onLongClick: (MenuTarget) -> Unit = {},
     onMore: (HomeSection) -> Unit = {},
     onGenreClick: (String) -> Unit = {},
@@ -214,6 +222,43 @@ fun HomeScreen(
             contentPadding = PaddingValues(top = topInset + 8.dp, bottom = bottomInset + 24.dp),
         ) {
             homeTitle()
+            if (feed.recentSongs.isNotEmpty()) {
+                item(key = "recent-song-tiles") {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        feed.recentSongs.take(6).chunked(2).forEach { pair ->
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                pair.forEach { item ->
+                                    Surface(
+                                        onClick = { onPlayRecent(item.song) },
+                                        modifier = Modifier.weight(1f),
+                                        shape = RoundedCornerShape(16.dp),
+                                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                    ) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            CoverArt(
+                                                ref = coverArt(item.coverArt, true),
+                                                name = item.song.title,
+                                                modifier = Modifier.size(52.dp).clip(RoundedCornerShape(13.dp)),
+                                            )
+                                            Text(
+                                                text = item.song.title,
+                                                modifier = Modifier.padding(horizontal = 8.dp),
+                                                style = MaterialTheme.typography.labelLarge,
+                                                maxLines = 2,
+                                                overflow = TextOverflow.Ellipsis,
+                                            )
+                                        }
+                                    }
+                                }
+                                if (pair.size == 1) Spacer(Modifier.weight(1f))
+                            }
+                        }
+                    }
+                }
+            }
             item(key = "home-shortcuts") {
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
@@ -233,47 +278,12 @@ fun HomeScreen(
                     }
                 }
             }
-            feed.rediscoverAlbums.firstOrNull()?.let { album ->
-                item(key = "featured-rediscovery") {
-                    val art = coverArt(album.coverArt, true)
-                    Surface(
-                        color = MaterialTheme.colorScheme.surfaceContainer,
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 8.dp)
-                                .combinedClickable(
-                                    onClick = { onAlbumClick(album) },
-                                    onLongClick = { onLongClick(MenuTarget.Album(album, art)) },
-                                ),
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            CoverArt(ref = art, name = album.name, modifier = Modifier.size(116.dp))
-                            Column(
-                                modifier = Modifier.weight(1f).padding(16.dp),
-                                verticalArrangement = Arrangement.spacedBy(4.dp),
-                            ) {
-                                Text(
-                                    text = stringResource(R.string.home_section_rediscover),
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.primary,
-                                )
-                                Text(
-                                    text = album.name,
-                                    style = MaterialTheme.typography.titleLarge,
-                                    maxLines = 3,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                                album.albumArtist?.let { artist ->
-                                    Text(
-                                        text = artist,
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        maxLines = 2,
-                                        overflow = TextOverflow.Ellipsis,
-                                    )
-                                }
-                            }
-                        }
+            if (feed.recentlyAddedAlbums.isNotEmpty() && onShuffleRecent != null) {
+                item(key = "shuffle-recent") {
+                    TextButton(onClick = onShuffleRecent, modifier = Modifier.padding(horizontal = 8.dp)) {
+                        Icon(Icons.Rounded.Shuffle, contentDescription = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text(stringResource(R.string.shuffle_recently_added))
                     }
                 }
             }
@@ -524,7 +534,7 @@ private fun PlaylistTile(
         CoverArt(
             ref = ref,
             name = playlist.name,
-            modifier = Modifier.size(TILE_SIZE).clip(RoundedCornerShape(2.dp)),
+            modifier = Modifier.size(TILE_SIZE).clip(RoundedCornerShape(14.dp)),
         )
         Spacer(Modifier.height(6.dp))
         Text(
@@ -537,7 +547,8 @@ private fun PlaylistTile(
 }
 
 private fun HomeFeed.isEmpty(): Boolean =
-    recentlyPlayedAlbums.isEmpty() &&
+    recentSongs.isEmpty() &&
+        recentlyPlayedAlbums.isEmpty() &&
         recentlyPlayedArtists.isEmpty() &&
         mostPlayedAlbums.isEmpty() &&
         mostPlayedArtists.isEmpty() &&
@@ -841,7 +852,7 @@ private fun AlbumTile(
         CoverArt(
             ref = ref,
             name = album.name,
-            modifier = Modifier.size(TILE_SIZE).clip(RoundedCornerShape(2.dp)),
+            modifier = Modifier.size(TILE_SIZE).clip(RoundedCornerShape(14.dp)),
         )
         Spacer(Modifier.height(6.dp))
         Text(

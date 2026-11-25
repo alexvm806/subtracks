@@ -102,6 +102,11 @@ class LibraryRepository(
         limit: Int,
     ): Flow<List<AlbumSongItem>> = db.libraryDao().recentlyStarredSongs(sourceId, limit)
 
+    fun recentlyPlayedSongs(
+        sourceId: Long,
+        limit: Int,
+    ): Flow<List<AlbumSongItem>> = db.libraryDao().recentlyPlayedSongs(sourceId, limit)
+
     fun genresByMostPlayed(sourceId: Long): Flow<List<String>> = db.libraryDao().genresByMostPlayed(sourceId)
 
     fun decades(sourceId: Long): Flow<List<Long>> = db.libraryDao().decades(sourceId)
