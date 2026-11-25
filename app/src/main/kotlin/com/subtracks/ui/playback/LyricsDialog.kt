@@ -39,6 +39,25 @@ internal fun LyricsDialog(
     onSeek: (Long) -> Unit,
     onDismiss: () -> Unit,
 ) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            LyricsContent(positionMs, offline, load, onSeek)
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.info_close)) }
+        },
+    )
+}
+
+@Composable
+internal fun LyricsContent(
+    positionMs: Long,
+    offline: Boolean,
+    load: suspend () -> List<LyricLine>,
+    onSeek: (Long) -> Unit,
+) {
     var lines by remember { mutableStateOf<List<LyricLine>?>(null) }
     var failed by remember { mutableStateOf(false) }
     var attempt by remember { mutableIntStateOf(0) }
@@ -53,36 +72,27 @@ internal fun LyricsDialog(
             failed = true
         }
     }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(title) },
-        text = {
-            val lyrics = lines
-            when {
-                failed -> {
-                    Column {
-                        Text(stringResource(R.string.lyrics_failed))
-                        TextButton(onClick = { attempt++ }) { Text(stringResource(R.string.lyrics_retry)) }
-                    }
-                }
-
-                lyrics == null -> {
-                    Text(stringResource(R.string.lyrics_loading))
-                }
-
-                lyrics.isEmpty() -> {
-                    Text(stringResource(if (offline) R.string.lyrics_offline else R.string.lyrics_empty))
-                }
-
-                else -> {
-                    LyricList(lyrics, positionMs, onSeek)
-                }
+    val lyrics = lines
+    when {
+        failed -> {
+            Column {
+                Text(stringResource(R.string.lyrics_failed))
+                TextButton(onClick = { attempt++ }) { Text(stringResource(R.string.lyrics_retry)) }
             }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.info_close)) }
-        },
-    )
+        }
+
+        lyrics == null -> {
+            Text(stringResource(R.string.lyrics_loading))
+        }
+
+        lyrics.isEmpty() -> {
+            Text(stringResource(if (offline) R.string.lyrics_offline else R.string.lyrics_empty))
+        }
+
+        else -> {
+            LyricList(lyrics, positionMs, onSeek)
+        }
+    }
 }
 
 @Composable
