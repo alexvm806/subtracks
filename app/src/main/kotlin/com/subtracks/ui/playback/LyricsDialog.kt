@@ -22,6 +22,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.subtracks.R
 import com.subtracks.data.source.subsonic.LyricLine
@@ -63,9 +66,17 @@ internal fun LyricsDialog(
                     }
                 }
 
-                lyrics == null -> Text(stringResource(R.string.lyrics_loading))
-                lyrics.isEmpty() -> Text(stringResource(if (offline) R.string.lyrics_offline else R.string.lyrics_empty))
-                else -> LyricList(lyrics, positionMs, onSeek)
+                lyrics == null -> {
+                    Text(stringResource(R.string.lyrics_loading))
+                }
+
+                lyrics.isEmpty() -> {
+                    Text(stringResource(if (offline) R.string.lyrics_offline else R.string.lyrics_empty))
+                }
+
+                else -> {
+                    LyricList(lyrics, positionMs, onSeek)
+                }
             }
         },
         confirmButton = {
@@ -111,11 +122,24 @@ private fun LyricList(
                     } else {
                         Modifier
                     }
+                val cue = if (index == active) line.cues.firstOrNull { positionMs in it.startMs until it.endMs } else null
+                val highlight = MaterialTheme.colorScheme.primary
+                val label =
+                    remember(line, cue, highlight) {
+                        buildAnnotatedString {
+                            append(line.text)
+                            if (cue != null) addStyle(SpanStyle(color = highlight, fontWeight = FontWeight.Bold), cue.from, cue.until)
+                        }
+                    }
                 Text(
-                    text = line.text,
-                    modifier = Modifier.fillMaxWidth().then(seek).padding(vertical = 8.dp),
+                    text = label,
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .then(seek)
+                            .padding(vertical = 8.dp),
                     style = MaterialTheme.typography.titleMedium,
-                    color = if (index == active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = if (index == active && line.cues.isEmpty()) highlight else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }

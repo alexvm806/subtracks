@@ -10,11 +10,19 @@ import java.security.MessageDigest
 internal data class LyricLine(
     val text: String,
     val startMs: Long?,
+    val cues: List<LyricCue> = emptyList(),
+)
+
+internal data class LyricCue(
+    val from: Int,
+    val until: Int,
+    val startMs: Long,
+    val endMs: Long,
 )
 
 internal object SongLyrics {
     private const val MAX_BYTES = 512 * 1024L
-    private val extensions = LruCache<String, Boolean>(16)
+    private val extensions = LruCache<String, Int>(16)
 
     fun load(
         cacheDir: File,
@@ -35,11 +43,12 @@ internal object SongLyrics {
             }
         }
         if (offline) return emptyList()
-        val structured =
-            extensions.get(serverKey) ?: supportsLyrics(client).also { extensions.put(serverKey, it) }
+        val version =
+            extensions.get(serverKey) ?: lyricsVersion(client).also { extensions.put(serverKey, it) }
         val response =
-            if (structured) {
-                request(client, "getLyricsBySongId", mapOf("id" to id))
+            if (version > 0) {
+                val params = if (version >= 2) mapOf("id" to id, "enhanced" to "true") else mapOf("id" to id)
+                request(client, "getLyricsBySongId", params)
             } else {
                 if (artist.isNullOrBlank()) return emptyList()
                 request(client, "getLyrics", mapOf("artist" to artist, "title" to title))
@@ -72,16 +81,23 @@ internal object SongLyrics {
             .digest(key.toByteArray())
             .joinToString("") { "%02x".format(it) }
 
-    private fun supportsLyrics(client: SubsonicClient): Boolean {
+    private fun lyricsVersion(client: SubsonicClient): Int {
         val response =
             try {
                 request(client, "getOpenSubsonicExtensions", emptyMap())
             } catch (failure: SubsonicException) {
-                if (failure.code in listOf(0, 70) || failure.message == "HTTP 404") return false
+                if (failure.code in listOf(0, 70) || failure.message == "HTTP 404") return 0
                 throw failure
             }
-        val entries = response.optJSONArray("openSubsonicExtensions") ?: return false
-        return (0 until entries.length()).any { entries.optJSONObject(it)?.optString("name") == "songLyrics" }
+        val entries = response.optJSONArray("openSubsonicExtensions") ?: return 0
+        for (i in 0 until entries.length()) {
+            val entry = entries.optJSONObject(i) ?: continue
+            if (entry.optString("name") != "songLyrics") continue
+            val versions = entry.optJSONArray("versions") ?: continue
+            val supported = (0 until versions.length()).map { versions.optInt(it) }
+            return supported.filter { it in 1..2 }.maxOrNull() ?: 0
+        }
+        return 0
     }
 
     private fun request(
@@ -108,6 +124,12 @@ internal object SongLyrics {
             if (group.optString("kind", "main") != "main") continue
             val rows = group.optJSONArray("line") ?: continue
             val offset = group.optInt("offset").toLong()
+            val cueLines = group.optJSONArray("cueLine")
+            val cuesByIndex = mutableMapOf<Int, JSONObject>()
+            for (k in 0 until (cueLines?.length() ?: 0)) {
+                val cueLine = cueLines?.optJSONObject(k) ?: continue
+                cuesByIndex[cueLine.optInt("index", -1)] = cueLine
+            }
             val lines =
                 buildList {
                     for (j in 0 until rows.length()) {
@@ -115,15 +137,44 @@ internal object SongLyrics {
                         val value = row.optString("value")
                         val start = row.optLong("start", -1L)
                         val time = if (start >= 0) (start - offset).coerceAtLeast(0) else null
-                        if (value.isNotBlank()) add(LyricLine(value, time))
+                        if (value.isNotBlank()) add(LyricLine(value, time, parseCues(value, cuesByIndex[j], offset)))
                     }
                 }
             if (lines.isEmpty()) continue
             if (group.optBoolean("synced") && lines.all { it.startMs != null }) return lines.sortedBy { it.startMs }
-            if (fallback.isEmpty()) fallback = lines.map { it.copy(startMs = null) }
+            if (fallback.isEmpty()) fallback = lines.map { it.copy(startMs = null, cues = emptyList()) }
         }
         if (fallback.isNotEmpty()) return fallback
         val plain = response.optJSONObject("lyrics")?.optString("value").orEmpty()
         return plain.lines().filter { it.isNotBlank() }.map { LyricLine(it, null) }
+    }
+
+    private fun parseCues(
+        text: String,
+        line: JSONObject?,
+        offset: Long,
+    ): List<LyricCue> {
+        val cues = line?.optJSONArray("cue") ?: return emptyList()
+        val bytes = text.toByteArray()
+        var byteCursor = 0
+        var charCursor = 0
+        return buildList {
+            for (i in 0 until cues.length()) {
+                val cue = cues.optJSONObject(i) ?: continue
+                val first = cue.optInt("byteStart", -1)
+                val last = cue.optInt("byteEnd", -1)
+                val start = cue.optLong("start", -1)
+                val end = cue.optLong("end", -1)
+                if (first < byteCursor || last !in first until bytes.size || start < 0 || end <= start) continue
+                val word = cue.optString("value")
+                if (word.isEmpty() || bytes.decodeToString(first, last + 1) != word) continue
+                val from = charCursor + bytes.decodeToString(byteCursor, first).length
+                val until = from + word.length
+                if (until > text.length) continue
+                add(LyricCue(from, until, (start - offset).coerceAtLeast(0), (end - offset).coerceAtLeast(0)))
+                charCursor = until
+                byteCursor = last + 1
+            }
+        }
     }
 }
