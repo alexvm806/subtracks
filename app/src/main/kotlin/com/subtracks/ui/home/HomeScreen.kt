@@ -291,7 +291,8 @@ fun HomeScreen(
                         }
                         if (filter != HomeFilter.Mixes) {
                             feed.recentlyPlayedAlbums.take(6).forEach { album ->
-                                add(HomeShortcut(album.name, Icons.Rounded.Album, coverArt(album.coverArt, true)) { onAlbumClick(album) })
+                                val ref = coverArt(album.coverArt, true)
+                                add(HomeShortcut(album.name, Icons.Rounded.Album, ref) { onAlbumClick(album) })
                             }
                         }
                     }
