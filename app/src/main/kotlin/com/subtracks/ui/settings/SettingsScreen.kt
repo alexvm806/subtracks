@@ -70,6 +70,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.subtracks.BuildConfig
 import com.subtracks.R
+import com.subtracks.data.repo.DEVICE_SOURCE_ID
 import com.subtracks.data.model.Source
 import com.subtracks.data.prefs.DEFAULT_SYNC_INTERVAL_MINUTES
 import com.subtracks.data.prefs.MAX_REPLAY_GAIN_PREAMP_DB
@@ -282,7 +283,7 @@ fun SettingsScreen(
                 ListItem(
                     headlineContent = { Text(source.name) },
                     supportingContent = {
-                        Text(source.address, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(source.address.ifBlank { stringResource(R.string.device_music) }, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     },
                     leadingContent = {
                         RadioButton(
@@ -291,8 +292,10 @@ fun SettingsScreen(
                         )
                     },
                     trailingContent = {
-                        IconButton(onClick = { onEditServer(source.id) }) {
-                            Icon(Icons.Rounded.Edit, contentDescription = stringResource(R.string.edit_source_description, source.name))
+                        if (source.id != DEVICE_SOURCE_ID) {
+                            IconButton(onClick = { onEditServer(source.id) }) {
+                                Icon(Icons.Rounded.Edit, contentDescription = stringResource(R.string.edit_source_description, source.name))
+                            }
                         }
                     },
                     modifier =

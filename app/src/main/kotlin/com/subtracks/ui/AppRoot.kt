@@ -92,6 +92,7 @@ import com.subtracks.ui.home.HomeListRoute
 import com.subtracks.ui.home.HomeSection
 import com.subtracks.ui.home.OfflineListKind
 import com.subtracks.ui.library.AlbumDetailRoute
+import com.subtracks.ui.library.DeviceMusicMenu
 import com.subtracks.ui.library.ArtistDetailRoute
 import com.subtracks.ui.library.LibraryRoute
 import com.subtracks.ui.library.LibraryTab
@@ -211,7 +212,7 @@ fun SubtracksRoot(root: RootViewModel = koinViewModel()) {
         }
 
         false -> {
-            AddSourceRoute(onSaved = {}, onBack = null)
+            AddSourceRoute(onSaved = {}, onBack = null, deviceImport = { DeviceMusicMenu(firstRun = true) })
         }
 
         true -> {
@@ -400,6 +401,7 @@ private fun MainNavigation() {
                 ) {
                     composable(Routes.LIBRARY) {
                         LibraryRoute(
+                            sourceMenu = { DeviceMusicMenu() },
                             onAlbumClick = { album ->
                                 navigateDetail(Routes.ALBUM_DETAIL, "albumId", album.id, Routes.album(album.id, album.coverArt))
                             },

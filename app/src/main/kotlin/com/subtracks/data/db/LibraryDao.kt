@@ -258,6 +258,15 @@ internal val ALBUMS_FOR_ARTIST_DOWNLOADED =
 @Dao
 @DaoReturnTypeConverters(PagingSourceDaoReturnTypeConverter::class)
 interface LibraryDao {
+    @Query("UPDATE albums SET songCount = (SELECT COUNT(*) FROM songs WHERE sourceId = :sourceId AND albumId = albums.id) WHERE sourceId = :sourceId")
+    suspend fun recountDeviceAlbums(sourceId: Long)
+
+    @Query("DELETE FROM albums WHERE sourceId = :sourceId AND songCount = 0")
+    suspend fun removeEmptyDeviceAlbums(sourceId: Long)
+
+    @Query("DELETE FROM artists WHERE sourceId = :sourceId AND songCount = 0 AND albumCount = 0")
+    suspend fun removeEmptyDeviceArtists(sourceId: Long)
+
     @Upsert
     suspend fun upsertArtists(items: List<Artist>)
 

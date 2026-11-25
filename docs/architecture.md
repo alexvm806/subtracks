@@ -168,3 +168,7 @@ No analytics or third-party telemetry. Credentials are stored locally in app dat
 ## Build and CI
 
 The Nix flake devshell provides the whole toolchain, and `direnv` loads it into the working shell. CI runs `unit`, `lint` and `integration`, restoring the Nix store from the Actions cache and caching Gradle and the integration test music.
+
+## Device music
+
+The Android document picker grants access to selected audio files. Imports stream bytes to a staging file, hash them for exact deduplication and read platform metadata off the UI thread. The device source uses ID −1 with no server configuration. Its albums, artists, songs and completed local copies use the existing Room and playback paths. Your Library switches the active catalogue. Local copies consume app storage, and removing one leaves the selected original intact.

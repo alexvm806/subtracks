@@ -21,6 +21,7 @@ import com.subtracks.data.prefs.UserPreferences
 import com.subtracks.data.prefs.createUserPreferences
 import com.subtracks.data.repo.ArtworkSeedRepository
 import com.subtracks.data.repo.ArtworkSeedStore
+import com.subtracks.data.repo.DeviceMusic
 import com.subtracks.data.repo.DownloadRepository
 import com.subtracks.data.repo.LibraryRepository
 import com.subtracks.data.repo.NetworkServerActionSink
@@ -111,6 +112,7 @@ fun appModule(
             scope = get(),
         )
     }
+    single { DeviceMusic(context.applicationContext, get(), get(named("io"))) }
     single { QueueRepository(get()) }
     single { ArtworkStore(downloadsRoot(context)) }
     single<ArtworkFetcher> { OkHttpArtworkFetcher(get()) }

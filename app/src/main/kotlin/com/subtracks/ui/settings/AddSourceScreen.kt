@@ -59,6 +59,7 @@ fun AddSourceRoute(
     onSaved: () -> Unit,
     onBack: (() -> Unit)?,
     sourceId: Long? = null,
+    deviceImport: @Composable () -> Unit = {},
     dismissals: Flow<Unit> = emptyFlow(),
     viewModel: AddSourceViewModel = koinViewModel(key = sourceId?.toString() ?: "new") { parametersOf(sourceId) },
 ) {
@@ -84,6 +85,7 @@ fun AddSourceRoute(
 
     AddSourceScreen(
         state = if (checkingNetwork) state.copy(busy = true) else state,
+        deviceImport = deviceImport,
         onNameChange = viewModel::setName,
         onAddressChange = viewModel::setAddress,
         onUsernameChange = viewModel::setUsername,
@@ -113,6 +115,7 @@ fun AddSourceScreen(
     onDelete: () -> Unit,
     onBack: (() -> Unit)?,
     modifier: Modifier = Modifier,
+    deviceImport: @Composable () -> Unit = {},
     dismissals: Flow<Unit> = emptyFlow(),
 ) {
     val nameFocus = remember { FocusRequester() }
@@ -204,6 +207,7 @@ fun AddSourceScreen(
                     .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            deviceImport()
             Text(
                 if (state.isEditing) {
                     stringResource(R.string.edit_server_intro)

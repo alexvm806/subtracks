@@ -242,6 +242,7 @@ fun LibraryRoute(
     setStar: (StarType, String, Boolean) -> Unit,
     bottomInset: Dp,
     shellNavigation: Boolean = false,
+    sourceMenu: @Composable () -> Unit = {},
     viewModel: LibraryViewModel = koinViewModel(),
     playbackController: PlaybackController = koinInject(),
 ) {
@@ -296,6 +297,7 @@ fun LibraryRoute(
         refreshing = refreshing,
         bottomInset = bottomInset,
         shellNavigation = shellNavigation,
+        sourceMenu = sourceMenu,
         artwork = artwork,
         albums = viewModel.albums,
         artists = viewModel.artists,
@@ -394,6 +396,7 @@ fun LibraryScreen(
     refreshing: Boolean = false,
     bottomInset: Dp = 0.dp,
     shellNavigation: Boolean = false,
+    sourceMenu: @Composable () -> Unit = {},
     listQuery: ListQuery = ListQuery(""),
     resetKeys: Map<LibraryTab, Any?> = emptyMap(),
     sortOptions: List<SortOption> = emptyList(),
@@ -579,6 +582,7 @@ fun LibraryScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                sourceMenu()
                 LibraryTab.entries.filter { it != LibraryTab.Home }.forEach { tab ->
                     FilterChip(
                         selected = selectedTab == tab,

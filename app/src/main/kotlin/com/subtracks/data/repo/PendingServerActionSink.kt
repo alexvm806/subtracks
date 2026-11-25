@@ -48,7 +48,7 @@ class PendingServerActionSink(
     }
 
     override suspend fun nowPlaying(songId: String) {
-        if (offline.value) return
+        if (offline.value || activeSourceId() == DEVICE_SOURCE_ID) return
         if (attempt { delegate.nowPlaying(songId) } == null) flush()
     }
 
@@ -57,6 +57,7 @@ class PendingServerActionSink(
         time: Long,
     ) {
         lock.withLock {
+            if (activeSourceId() == DEVICE_SOURCE_ID) return
             if (offline.value) {
                 enqueueLocked(PendingActionKind.Scrobble, songId, null, time)
                 return
@@ -73,6 +74,7 @@ class PendingServerActionSink(
         id: String,
         starred: Boolean,
     ) {
+        if (activeSourceId() == DEVICE_SOURCE_ID) return
         val kind = if (starred) PendingActionKind.Star else PendingActionKind.Unstar
         lock.withLock {
             if (offline.value) {

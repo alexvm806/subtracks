@@ -133,6 +133,34 @@ class DownloadRepositoryTest {
     }
 
     @Test
+    fun deviceImportDeduplicatesAndPlaysWithoutAServer() =
+        runTest {
+            val album = album(null).copy(sourceId = DEVICE_SOURCE_ID, songCount = 1)
+            val audio = "fLaC test".toByteArray()
+            suspend fun add(): Boolean {
+                val temp = repository.deviceStagingFile()
+                try {
+                    val id = audio.inputStream().use { copyDeviceAudio(it, temp) }
+                    val song = Song(DEVICE_SOURCE_ID, id, album.id, null, "Local", album.name, null, 2, 1, 1, null)
+                    return repository.storeDeviceSong(temp, song, album, emptyList(), "On this device")
+                } finally {
+                    temp.delete()
+                }
+            }
+            assertTrue(add())
+            assertFalse(add())
+            assertEquals(DEVICE_SOURCE_ID, sources.activeSourceIdOnce())
+            assertNull(sources.activeMusicSource())
+            val saved = db.downloadDao().completedDownloads(DEVICE_SOURCE_ID).single()
+            assertEquals(audio.toList(), repository.localFile(DEVICE_SOURCE_ID, saved.songId)?.readBytes()?.toList())
+            assertEquals(1L, db.libraryDao().albumOnce(DEVICE_SOURCE_ID, album.id)?.songCount)
+            assertTrue(engine.requests.isEmpty())
+            repository.remove(DEVICE_SOURCE_ID, saved.songId)
+            assertNull(db.libraryDao().songOnce(DEVICE_SOURCE_ID, saved.songId))
+            assertNull(db.libraryDao().albumOnce(DEVICE_SOURCE_ID, album.id))
+        }
+
+    @Test
     fun startingADownloadAsksTheEngineForTheOriginalAndRecordsIt() =
         runTest {
             seedLibrary()

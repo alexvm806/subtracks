@@ -401,4 +401,10 @@
     <string name="lyrics_offline">No lyrics saved for this track. Open lyrics while online to save a copy.</string>
     <string name="lyrics_retry">Try again</string>
     <string name="lyrics_follow">Follow playback</string>
+    <string name="device_music">On this device</string>
+    <string name="device_sources">Music sources</string>
+    <string name="device_import">Import audio files</string>
+    <string name="device_importing">Importing audio…</string>
+    <string name="device_unknown_album">Unknown album</string>
+    <string name="device_import_result">Audio import: %1$d added · %2$d already present · %3$d failed</string>
 </resources>
