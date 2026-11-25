@@ -325,7 +325,8 @@ fun NowPlayingRoute(
                     timing.edit().putInt(timingKey, advance).apply()
                 }
                 LyricsPanel(
-                    advanceMs = advance,                    title = track.title,
+                    advanceMs = advance,
+                    title = track.title,
                     artist = track.artist,
                     album = track.album,
                     artwork = thumbnail,
