@@ -291,27 +291,28 @@ fun NowPlayingRoute(
     var lyricRevision by remember { mutableIntStateOf(0) }
     var pendingSong by rememberSaveable { mutableStateOf<String?>(null) }
     var pendingSource by rememberSaveable { mutableStateOf<Long?>(null) }
-    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        val id = pendingSong
-        val source = pendingSource
-        pendingSong = null
-        pendingSource = null
-        if (uri != null && id != null && source != null) {
-            scope.launch {
-                try {
-                    withContext(Dispatchers.IO) {
-                        val file = SongLyrics.overrideFile(context.filesDir, source, id)
-                        requireNotNull(context.contentResolver.openInputStream(uri)).use { SongLyrics.importLrc(file, it) }
+    val picker =
+        rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            val id = pendingSong
+            val source = pendingSource
+            pendingSong = null
+            pendingSource = null
+            if (uri != null && id != null && source != null) {
+                scope.launch {
+                    try {
+                        withContext(Dispatchers.IO) {
+                            val file = SongLyrics.overrideFile(context.filesDir, source, id)
+                            requireNotNull(context.contentResolver.openInputStream(uri)).use { SongLyrics.importLrc(file, it) }
+                        }
+                        lyricRevision++
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
+                    } catch (_: Exception) {
+                        Toast.makeText(context, R.string.invalid_lrc, Toast.LENGTH_LONG).show()
                     }
-                    lyricRevision++
-                } catch (cancelled: CancellationException) {
-                    throw cancelled
-                } catch (_: Exception) {
-                    Toast.makeText(context, R.string.invalid_lrc, Toast.LENGTH_LONG).show()
                 }
             }
         }
-    }
     val panel: @Composable (Boolean) -> Unit = { expanded ->
         if (track != null) {
             key(track.sourceId, track.id, lyricRevision) {

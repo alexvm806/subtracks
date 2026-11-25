@@ -30,7 +30,8 @@ internal object SongLyrics {
     private val shift = Regex("""(?im)^\s*\[offset:\s*([+-]?\d{1,8})]\s*$""")
 
     internal fun parseLrc(raw: String): List<LyricLine> {
-        val offset = shift.find(raw)?.groupValues?.get(1)?.toLongOrNull() ?: 0L
+        val shiftValue = shift.find(raw)?.groupValues?.get(1)
+        val offset = shiftValue?.toLongOrNull() ?: 0L
         return buildList {
             for (row in raw.removePrefix("\uFEFF").lineSequence()) {
                 val matches = stamp.findAll(row).toList()
@@ -56,10 +57,12 @@ internal object SongLyrics {
         file: AtomicFile,
         input: InputStream,
     ) {
-        val raw = input.source().buffer().use { source ->
-            require(!source.request(MAX_BYTES + 1))
-            source.readUtf8()
-        }
+        val buffered = input.source().buffer()
+        val raw =
+            buffered.use { source ->
+                require(!source.request(MAX_BYTES + 1))
+                source.readUtf8()
+            }
         require(parseLrc(raw).isNotEmpty())
         synchronized(this) {
             val out = file.startWrite()

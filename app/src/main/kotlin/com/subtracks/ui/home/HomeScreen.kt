@@ -29,6 +29,7 @@ import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
 import androidx.compose.material.icons.automirrored.rounded.TrendingUp
 import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.CalendarMonth
+import androidx.compose.material.icons.rounded.Casino
 import androidx.compose.material.icons.rounded.Category
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Favorite
@@ -39,7 +40,6 @@ import androidx.compose.material.icons.rounded.LocalFireDepartment
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Replay
-import androidx.compose.material.icons.rounded.Casino
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.DropdownMenu
@@ -176,7 +176,8 @@ fun HomeRoute(
                 albums.firstOrNull()?.let { playbackController.shuffleRecentAlbums(it.sourceId, albums.map(Album::id)) }
             },
             onShuffleLiked = {
-                feed.recentlyStarredSongs.firstOrNull()?.song?.let { playbackController.shuffleStarred(it.sourceId) }
+                val first = feed.recentlyStarredSongs.firstOrNull()
+                if (first != null) playbackController.shuffleStarred(first.song.sourceId)
             },
             onShuffleRecent = {
                 val albums = feed.recentlyAddedAlbums
