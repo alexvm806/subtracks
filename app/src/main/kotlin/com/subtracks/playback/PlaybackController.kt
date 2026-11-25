@@ -371,15 +371,19 @@ class PlaybackController(
         val entry = entries.first()
         downloads.awaitLoaded()
         queueRepository.withMutationLock {
+            val previous = snapshot
+            val previousEntry = previous?.entries?.singleOrNull()?.entry
+            val avoid =
+                if (previous != null && entries.size == 1 && previousEntry?.origin == entry.origin) {
+                    currentPosition()?.takeUnless(previous::isUpNext)?.let { previous.flatContext(previous.contextPlay(it)) }
+                } else {
+                    null
+                }
             windowJob?.cancel()
             windowStart = 0
             windowEnd = -1
             lastEdit = null
             endedHandled = false
-            val previous = snapshot
-            val previousEntry = previous?.entries?.firstOrNull()?.entry
-            val same = entries.size == 1 && previousEntry == entry
-            val avoid = if (same) currentQueuePosition()?.let { previous.flatContext(previous.anchorContextPlay(it)) } else null
             replace(entries)
             var snap = snapshot()
             if (snap.contextSize == 0L) {

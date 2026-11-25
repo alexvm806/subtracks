@@ -6,3 +6,4 @@
 - Reopening a saved session restores it paused. Abrupt termination between checkpoints may lose recent progress.
 
 See [development progress](DEVELOPMENT_PROGRESS.md) for test and build evidence and [earlier milestones](docs/personal-player-roadmap.md).
+- Explicitly reshuffling the same album uses its source and library identity to avoid restarting on the current track when alternatives exist.
