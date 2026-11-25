@@ -9,6 +9,7 @@ import com.subtracks.data.model.QueueKind
 import com.subtracks.data.model.QueueOrigin
 import com.subtracks.data.prefs.SongTapBehavior
 import com.subtracks.data.prefs.UserPreferences
+import com.subtracks.data.repo.DEVICE_SOURCE_ID
 import com.subtracks.data.repo.DownloadRepository
 import com.subtracks.data.repo.QueueRepository
 import com.subtracks.data.repo.QueueRepository.QueueMutationScope
@@ -258,6 +259,23 @@ class PlaybackController(
         albumId: String,
         startOrdinal: Long,
     ) = play(queueRepository.albumEntry(sourceId, albumId), startOrdinal)
+
+    private var sourcePlay: Job? = null
+
+    fun playLibrarySong(
+        sourceId: Long,
+        songId: String,
+    ) {
+        sourcePlay?.cancel()
+        sourcePlay =
+            scope.launch {
+                if (sourceRepository.activeSourceIdOnce() != sourceId) sourceRepository.selectSource(sourceId)
+                val configId = sourceId.takeUnless { it == DEVICE_SOURCE_ID }
+                sourceRepository.activeSource.first { it == configId }
+                downloads.awaitSource(sourceId)
+                if (sourceRepository.activeSourceIdOnce() == sourceId) playSong(sourceId, songId)
+            }
+    }
 
     fun playSong(
         sourceId: Long,

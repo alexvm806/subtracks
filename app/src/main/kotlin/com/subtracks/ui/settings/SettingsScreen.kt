@@ -70,7 +70,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.subtracks.BuildConfig
 import com.subtracks.R
-import com.subtracks.data.repo.DEVICE_SOURCE_ID
 import com.subtracks.data.model.Source
 import com.subtracks.data.prefs.DEFAULT_SYNC_INTERVAL_MINUTES
 import com.subtracks.data.prefs.MAX_REPLAY_GAIN_PREAMP_DB
@@ -80,6 +79,7 @@ import com.subtracks.data.prefs.SongTapBehavior
 import com.subtracks.data.prefs.SortNameMode
 import com.subtracks.data.prefs.StreamQuality
 import com.subtracks.data.prefs.SyncMode
+import com.subtracks.data.repo.DEVICE_SOURCE_ID
 import com.subtracks.log.Log
 import com.subtracks.ui.components.DismissOnRequest
 import com.subtracks.ui.components.rememberViewportFill
@@ -283,7 +283,8 @@ fun SettingsScreen(
                 ListItem(
                     headlineContent = { Text(source.name) },
                     supportingContent = {
-                        Text(source.address.ifBlank { stringResource(R.string.device_music) }, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        val location = source.address.ifBlank { stringResource(R.string.device_music) }
+                        Text(location, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     },
                     leadingContent = {
                         RadioButton(

@@ -701,3 +701,11 @@ object ArtistRefsCodec {
         return refs
     }
 }
+
+data class LibraryTrack(
+    val sourceId: Long,
+    val songId: String,
+    val sourceName: String,
+    val title: String,
+    val artist: String?,
+)

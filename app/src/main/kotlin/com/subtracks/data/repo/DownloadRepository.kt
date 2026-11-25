@@ -44,6 +44,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
@@ -82,6 +83,7 @@ class DownloadRepository(
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + dispatcher),
 ) {
     private val mutex = Mutex()
+    private val loadedSource = MutableStateFlow<Long?>(null)
     private val loaded = CompletableDeferred<Unit>()
     private var pollJob: Job? = null
 
@@ -109,6 +111,7 @@ class DownloadRepository(
                     if (resetPoint == null) resetPoint = queueRepository.captureResetPoint()
                     downloadStates().collect { (sourceId, emittedRows) ->
                         statesFlow.value = emittedRows
+                        loadedSource.value = sourceId
                         val unchanged = sameResetRelevantEmission(reconciled, sourceId, emittedRows)
                         val pending =
                             unchanged && sourceId != null &&
@@ -241,6 +244,10 @@ class DownloadRepository(
             if (sourceId == null) flowOf(emptyList()) else db.downloadDao().activeDownloads(sourceId)
         }
 
+    internal suspend fun awaitSource(sourceId: Long) {
+        if (started) loadedSource.first { it == sourceId }
+    }
+
     suspend fun awaitLoaded() {
         if (started) loaded.await()
     }
@@ -283,7 +290,8 @@ class DownloadRepository(
             val library = db.libraryDao()
             val destination = file(DEVICE_SOURCE_ID, song.id)
             val existing = library.songOnce(DEVICE_SOURCE_ID, song.id)
-            if (existing != null && destination.isFile && db.downloadDao().find(DEVICE_SOURCE_ID, song.id)?.status == DownloadStatus.Completed) {
+            val downloaded = db.downloadDao().find(DEVICE_SOURCE_ID, song.id)
+            if (existing != null && destination.isFile && downloaded?.status == DownloadStatus.Completed) {
                 return@withLock false
             }
             val size = staging.length()

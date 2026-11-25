@@ -407,4 +407,6 @@
     <string name="device_importing">Importing audio…</string>
     <string name="device_unknown_album">Unknown album</string>
     <string name="device_import_result">Audio import: %1$d added · %2$d already present · %3$d failed</string>
+    <string name="device_all_songs">Songs from all sources</string>
+    <string name="device_no_songs">No songs available here yet.</string>
 </resources>

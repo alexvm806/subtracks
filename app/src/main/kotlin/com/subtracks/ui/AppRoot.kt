@@ -92,8 +92,9 @@ import com.subtracks.ui.home.HomeListRoute
 import com.subtracks.ui.home.HomeSection
 import com.subtracks.ui.home.OfflineListKind
 import com.subtracks.ui.library.AlbumDetailRoute
-import com.subtracks.ui.library.DeviceMusicMenu
+import com.subtracks.ui.library.AllSongsScreen
 import com.subtracks.ui.library.ArtistDetailRoute
+import com.subtracks.ui.library.DeviceMusicMenu
 import com.subtracks.ui.library.LibraryRoute
 import com.subtracks.ui.library.LibraryTab
 import com.subtracks.ui.library.LibraryViewModel
@@ -138,6 +139,7 @@ private object Routes {
     const val LIBRARY = "library"
     const val SETTINGS = "settings"
     const val DOWNLOADS = "downloads"
+    const val ALL_SONGS = "all-songs"
     const val SEARCH = "search"
     const val LICENSES = "licenses"
     const val ADD_SERVER = "add-server"
@@ -401,7 +403,7 @@ private fun MainNavigation() {
                 ) {
                     composable(Routes.LIBRARY) {
                         LibraryRoute(
-                            sourceMenu = { DeviceMusicMenu() },
+                            sourceMenu = { DeviceMusicMenu(onAllSongs = { navController.navigate(Routes.ALL_SONGS) }) },
                             onAlbumClick = { album ->
                                 navigateDetail(Routes.ALBUM_DETAIL, "albumId", album.id, Routes.album(album.id, album.coverArt))
                             },
@@ -451,6 +453,9 @@ private fun MainNavigation() {
                             onBack = { navController.popBackStack() },
                             dismissals = contextMenuHost.dismissals,
                         )
+                    }
+                    composable(Routes.ALL_SONGS) {
+                        AllSongsScreen(libraryRepository, playbackController::playLibrarySong) { navController.popBackStack() }
                     }
                     composable(Routes.SEARCH) {
                         SearchRoute(
@@ -753,7 +758,9 @@ private fun MainNavigation() {
                             label = { Text(stringResource(R.string.search)) },
                         )
                         NavigationBarItem(
-                            selected = currentRoute == Routes.LIBRARY && section != null && section != LibraryTab.Home,
+                            selected =
+                                currentRoute == Routes.ALL_SONGS ||
+                                    (currentRoute == Routes.LIBRARY && section != null && section != LibraryTab.Home),
                             onClick = {
                                 libraryModel.selectTab(lastLibrarySection)
                                 openDestination(Routes.LIBRARY)

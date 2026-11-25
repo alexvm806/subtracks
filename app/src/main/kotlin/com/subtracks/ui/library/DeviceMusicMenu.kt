@@ -22,7 +22,10 @@ import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 
 @Composable
-internal fun DeviceMusicMenu(firstRun: Boolean = false) {
+internal fun DeviceMusicMenu(
+    firstRun: Boolean = false,
+    onAllSongs: () -> Unit = {},
+) {
     val importer = koinInject<DeviceMusic>()
     val sources = koinInject<SourceRepository>()
     val busy by importer.busy.collectAsStateWithLifecycle()
@@ -41,6 +44,13 @@ internal fun DeviceMusicMenu(firstRun: Boolean = false) {
             Text(selected?.name ?: stringResource(R.string.device_sources))
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.device_all_songs)) },
+                onClick = {
+                    expanded = false
+                    onAllSongs()
+                },
+            )
             available.forEach { source ->
                 DropdownMenuItem(
                     text = { Text(source.name) },

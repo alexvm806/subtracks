@@ -17,6 +17,7 @@ import com.subtracks.data.model.Artist
 import com.subtracks.data.model.ArtistAlbums
 import com.subtracks.data.model.ArtistBio
 import com.subtracks.data.model.Disc
+import com.subtracks.data.model.LibraryTrack
 import com.subtracks.data.model.Playlist
 import com.subtracks.data.model.PlaylistSongItem
 import com.subtracks.data.model.QueueKind
@@ -57,6 +58,9 @@ class LibraryRepository(
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
 ) {
     val activeSourceId: Flow<Long?> = sourceRepository.activeSourceId()
+
+    fun allTracks(): Flow<PagingData<LibraryTrack>> =
+        sourceRepository.offline.flatMapLatest { offline -> pager(60) { db.libraryDao().allLibraryTracks(offline) } }
 
     fun hasAlbumPlayCount(sourceId: Long): Flow<Boolean> = db.libraryDao().hasAlbumPlayCount(sourceId)
 

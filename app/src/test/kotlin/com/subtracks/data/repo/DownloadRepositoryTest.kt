@@ -3,6 +3,7 @@ package com.subtracks.data.repo
 import android.content.Context
 import android.content.res.Resources
 import android.net.Uri
+import androidx.paging.PagingSource
 import androidx.room3.immediateTransaction
 import androidx.room3.useReaderConnection
 import androidx.room3.useWriterConnection
@@ -137,6 +138,7 @@ class DownloadRepositoryTest {
         runTest {
             val album = album(null).copy(sourceId = DEVICE_SOURCE_ID, songCount = 1)
             val audio = "fLaC test".toByteArray()
+
             suspend fun add(): Boolean {
                 val temp = repository.deviceStagingFile()
                 try {
@@ -155,6 +157,16 @@ class DownloadRepositoryTest {
             assertEquals(audio.toList(), repository.localFile(DEVICE_SOURCE_ID, saved.songId)?.readBytes()?.toList())
             assertEquals(1L, db.libraryDao().albumOnce(DEVICE_SOURCE_ID, album.id)?.songCount)
             assertTrue(engine.requests.isEmpty())
+            seedLibrary()
+            val dao = db.libraryDao()
+
+            suspend fun sourcesInPage(offline: Boolean): Set<Long> {
+                val page = dao.allLibraryTracks(offline).load(PagingSource.LoadParams.Refresh(null, 50, false))
+                check(page is PagingSource.LoadResult.Page)
+                return page.data.map { it.sourceId }.toSet()
+            }
+            assertEquals(setOf(1L, DEVICE_SOURCE_ID), sourcesInPage(false))
+            assertEquals(setOf(DEVICE_SOURCE_ID), sourcesInPage(true))
             repository.remove(DEVICE_SOURCE_ID, saved.songId)
             assertNull(db.libraryDao().songOnce(DEVICE_SOURCE_ID, saved.songId))
             assertNull(db.libraryDao().albumOnce(DEVICE_SOURCE_ID, album.id))

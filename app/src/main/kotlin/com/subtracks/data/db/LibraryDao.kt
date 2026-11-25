@@ -18,6 +18,7 @@ import com.subtracks.data.model.ArtistBio
 import com.subtracks.data.model.ArtistSearch
 import com.subtracks.data.model.Disc
 import com.subtracks.data.model.DiscKey
+import com.subtracks.data.model.LibraryTrack
 import com.subtracks.data.model.Playlist
 import com.subtracks.data.model.PlaylistSearch
 import com.subtracks.data.model.PlaylistSong
@@ -258,7 +259,19 @@ internal val ALBUMS_FOR_ARTIST_DOWNLOADED =
 @Dao
 @DaoReturnTypeConverters(PagingSourceDaoReturnTypeConverter::class)
 interface LibraryDao {
-    @Query("UPDATE albums SET songCount = (SELECT COUNT(*) FROM songs WHERE sourceId = :sourceId AND albumId = albums.id) WHERE sourceId = :sourceId")
+    @Query(
+        "SELECT songs.sourceId, songs.id AS songId, sources.name AS sourceName, songs.title, songs.artist " +
+            "FROM songs JOIN sources ON sources.id = songs.sourceId " +
+            "WHERE :offline = 0 OR EXISTS (SELECT 1 FROM song_downloads d " +
+            "WHERE d.sourceId = songs.sourceId AND d.songId = songs.id AND d.status = 'Completed') " +
+            "ORDER BY songs.title COLLATE NOCASE, songs.sourceId, songs.id",
+    )
+    fun allLibraryTracks(offline: Boolean): PagingSource<Int, LibraryTrack>
+
+    @Query(
+        "UPDATE albums SET songCount = (SELECT COUNT(*) FROM songs WHERE sourceId = :sourceId AND albumId = albums.id) " +
+            "WHERE sourceId = :sourceId",
+    )
     suspend fun recountDeviceAlbums(sourceId: Long)
 
     @Query("DELETE FROM albums WHERE sourceId = :sourceId AND songCount = 0")

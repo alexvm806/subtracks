@@ -20,6 +20,7 @@ import java.io.File
 import java.io.InputStream
 import java.security.DigestInputStream
 import java.security.MessageDigest
+import java.util.UUID
 
 internal const val DEVICE_SOURCE_ID = -1L
 
@@ -78,6 +79,7 @@ internal class DeviceMusic(
             val metadata = MediaMetadataRetriever()
             try {
                 metadata.setDataSource(staging.absolutePath)
+
                 fun tag(key: Int): String? = metadata.extractMetadata(key)?.trim()?.takeIf { it.isNotEmpty() }
                 require(tag(MediaMetadataRetriever.METADATA_KEY_HAS_AUDIO) == "yes")
                 val artist = tag(MediaMetadataRetriever.METADATA_KEY_ARTIST)
@@ -116,6 +118,5 @@ internal class DeviceMusic(
         }
     }
 
-    private fun metadataId(vararg parts: String): String =
-        java.util.UUID.nameUUIDFromBytes(parts.joinToString("\u0000").toByteArray()).toString()
+    private fun metadataId(vararg parts: String): String = UUID.nameUUIDFromBytes(parts.joinToString("\u0000").toByteArray()).toString()
 }
