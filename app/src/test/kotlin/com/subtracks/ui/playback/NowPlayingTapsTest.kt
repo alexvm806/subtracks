@@ -117,10 +117,10 @@ class NowPlayingTapsTest {
     fun theArtistTargetIsAtLeastTheMinimumTouchSize() {
         render(onArtistClick = {})
 
-        // The block is the title line (32dp) plus the gap (6dp) plus the artist line
+        // The block is the title line (36dp) plus the gap (6dp) plus the artist line
         // (20dp); it must not absorb the slider's own top padding.
         composeRule.onNodeWithText("Radiohead").assertHeightIsAtLeast(48.dp)
-        composeRule.onNodeWithText("Radiohead").assertHeightIsEqualTo(58.dp)
+        composeRule.onNodeWithText("Radiohead").assertHeightIsEqualTo(62.dp)
         composeRule.onNodeWithText("Radiohead").assertWidthIsAtLeast(48.dp)
     }
 

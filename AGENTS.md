@@ -60,3 +60,5 @@ Everything comes from the Nix flake devshell; do not install toolchains by hand.
 - lms and Nextcloud Music authenticate the Subsonic API with per-user **API keys** instead of passwords. The harness seeds a key and most tests use `useTokenAuth = false`; `SubsonicAuthIntegrationTest` drives `useTokenAuth = true` and asserts the fallback to plaintext (lms answers code 42, Nextcloud 41).
 - `nix develop` does not source your shell rc files (so tools like atuin are not active); use direnv if you want your normal interactive shell.
 - The store screenshots in `metadata/en-US/images/phoneScreenshots/` must be 24-bit no-alpha PNGs (Play rejects palette and alpha PNGs for screenshots). `:app:demoScreenshots` writes its captures in that form, so copy them across as-is and don't run a palette optimizer over them.
+
+Read `DEVELOPMENT_PROGRESS.md` at the beginning of each subsequent development task and update the relevant feature evidence after verification.

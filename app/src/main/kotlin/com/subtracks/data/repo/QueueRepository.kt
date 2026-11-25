@@ -1192,6 +1192,18 @@ class QueueRepository(
             dao.setCursor(cursorRow().copy(positionMs = positionMs.coerceAtLeast(0)))
         }
 
+    suspend fun checkpointPosition(
+        expectedPosition: Long,
+        positionMs: Long,
+    ): Boolean =
+        withCursorLock {
+            val row = cursorRow()
+            if (row.queuePosition != expectedPosition) return@withCursorLock false
+            val offset = positionMs.coerceAtLeast(0)
+            if (row.positionMs != offset) dao.setCursor(row.copy(positionMs = offset))
+            true
+        }
+
     suspend fun setCursor(position: Long) =
         withCursorLock {
             val row = cursorRow()

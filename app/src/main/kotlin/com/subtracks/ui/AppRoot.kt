@@ -5,7 +5,7 @@ import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animate
-import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -27,6 +27,16 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.imeAnimationTarget
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Home
+import androidx.compose.material.icons.rounded.LibraryMusic
+import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material3.Icon
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -83,11 +93,16 @@ import com.subtracks.ui.home.HomeListRoute
 import com.subtracks.ui.home.HomeSection
 import com.subtracks.ui.home.OfflineListKind
 import com.subtracks.ui.library.AlbumDetailRoute
+import com.subtracks.ui.library.AllSongsScreen
 import com.subtracks.ui.library.ArtistDetailRoute
+import com.subtracks.ui.library.DeviceMusicMenu
 import com.subtracks.ui.library.LibraryRoute
+import com.subtracks.ui.library.LibraryTab
+import com.subtracks.ui.library.LibraryViewModel
 import com.subtracks.ui.library.PlaylistDetailRoute
 import com.subtracks.ui.playback.MiniPlayer
 import com.subtracks.ui.playback.NowPlayingRoute
+import com.subtracks.ui.playback.PlayerExpansion
 import com.subtracks.ui.playback.QueueRoute
 import com.subtracks.ui.search.SearchRoute
 import com.subtracks.ui.settings.AddSourceRoute
@@ -125,6 +140,7 @@ private object Routes {
     const val LIBRARY = "library"
     const val SETTINGS = "settings"
     const val DOWNLOADS = "downloads"
+    const val ALL_SONGS = "all-songs"
     const val SEARCH = "search"
     const val LICENSES = "licenses"
     const val ADD_SERVER = "add-server"
@@ -199,7 +215,7 @@ fun SubtracksRoot(root: RootViewModel = koinViewModel()) {
         }
 
         false -> {
-            AddSourceRoute(onSaved = {}, onBack = null)
+            AddSourceRoute(onSaved = {}, onBack = null, deviceImport = { DeviceMusicMenu(firstRun = true) })
         }
 
         true -> {
@@ -221,7 +237,21 @@ private fun MainNavigation() {
             .value
             ?.destination
             ?.route
-    val tabBarVisible = currentRoute == Routes.LIBRARY
+    val libraryModel = koinViewModel<LibraryViewModel>()
+    val section by libraryModel.selectedTab.collectAsStateWithLifecycle()
+    var lastLibrarySection by rememberSaveable { mutableStateOf(LibraryTab.Albums) }
+    LaunchedEffect(section) {
+        section?.takeUnless { it == LibraryTab.Home }?.let { lastLibrarySection = it }
+    }
+
+    fun openDestination(route: String) {
+        if (currentRoute == route) return
+        navController.navigate(route) {
+            popUpTo(Routes.LIBRARY)
+            launchSingleTop = true
+        }
+    }
+
     val playbackController = koinInject<PlaybackController>()
     val nowPlayingLauncher = koinInject<NowPlayingLauncher>()
     val libraryRepository = koinInject<LibraryRepository>()
@@ -233,6 +263,13 @@ private fun MainNavigation() {
     var nowPlayingProgress by remember { mutableFloatStateOf(0f) }
     var miniPlayerTopPx by remember { mutableFloatStateOf(0f) }
     var nowPlayingFadeOut by remember { mutableStateOf(false) }
+    val expansion =
+        remember {
+            PlayerExpansion(
+                progress = { if (nowPlayingFadeOut) 1f else nowPlayingProgress },
+                sheetStartY = { miniPlayerTopPx },
+            )
+        }
     var settleJob by remember { mutableStateOf<Job?>(null) }
     val scope = rememberCoroutineScope()
     val contextMenuHost = remember { ContextMenuHost() }
@@ -258,7 +295,10 @@ private fun MainNavigation() {
         if (id != null) previousSourceId = id
     }
 
-    fun settleNowPlaying(open: Boolean) {
+    fun settleNowPlaying(
+        open: Boolean,
+        velocity: Float = 0f,
+    ) {
         if (open) {
             nowPlayingOpen = true
             nowPlayingFadeOut = false
@@ -266,8 +306,13 @@ private fun MainNavigation() {
         settleJob?.cancel()
         settleJob =
             scope.launch {
-                animate(nowPlayingProgress, if (open) 1f else 0f, animationSpec = tween(OVERLAY_DURATION_MS)) { value, _ ->
-                    nowPlayingProgress = value
+                animate(
+                    initialValue = nowPlayingProgress,
+                    targetValue = if (open) 1f else 0f,
+                    initialVelocity = -velocity / miniPlayerTopPx.coerceAtLeast(1f),
+                    animationSpec = spring(dampingRatio = 1f, stiffness = 240f),
+                ) { value, _ ->
+                    nowPlayingProgress = value.coerceIn(0f, 1f)
                 }
                 if (!open) nowPlayingOpen = false
             }
@@ -329,14 +374,8 @@ private fun MainNavigation() {
         }
     }
     val density = LocalDensity.current
-    val navBarInset = with(density) { WindowInsets.navigationBars.getBottom(this).toDp() }
     val keyboardUp = WindowInsets.imeAnimationTarget.getBottom(density) > 0
     val showMiniPlayer = playerVisible && !keyboardUp
-    val bottomInset by animateDpAsState(
-        targetValue = if (showMiniPlayer) 0.dp else navBarInset,
-        animationSpec = tween(MINI_PLAYER_ANIM_MS),
-        label = "libraryBottomInset",
-    )
 
     val artwork =
         rememberArtworkColors(
@@ -352,13 +391,7 @@ private fun MainNavigation() {
                     modifier =
                         Modifier
                             .weight(1f)
-                            .then(
-                                if (playerVisible) {
-                                    Modifier.consumeWindowInsets(WindowInsets.navigationBars)
-                                } else {
-                                    Modifier
-                                },
-                            ),
+                            .consumeWindowInsets(WindowInsets.navigationBars),
                     startDestination = Routes.LIBRARY,
                     enterTransition = {
                         slideInHorizontally(initialOffsetX = { it / 4 }, animationSpec = tween(NAVIGATION_DURATION_MS)) +
@@ -379,6 +412,7 @@ private fun MainNavigation() {
                 ) {
                     composable(Routes.LIBRARY) {
                         LibraryRoute(
+                            sourceMenu = { DeviceMusicMenu(onAllSongs = { navController.navigate(Routes.ALL_SONGS) }) },
                             onAlbumClick = { album ->
                                 navigateDetail(Routes.ALBUM_DETAIL, "albumId", album.id, Routes.album(album.id, album.coverArt))
                             },
@@ -408,7 +442,9 @@ private fun MainNavigation() {
                             onDecadeClick = { decade -> navController.navigate(Routes.homeDecade(decade)) },
                             contextMenuHost = contextMenuHost,
                             setStar = libraryRepository::star,
-                            bottomInset = bottomInset,
+                            bottomInset = 0.dp,
+                            viewModel = libraryModel,
+                            shellNavigation = true,
                         )
                     }
                     composable(Routes.SETTINGS) {
@@ -426,6 +462,9 @@ private fun MainNavigation() {
                             onBack = { navController.popBackStack() },
                             dismissals = contextMenuHost.dismissals,
                         )
+                    }
+                    composable(Routes.ALL_SONGS) {
+                        AllSongsScreen(libraryRepository, playbackController::playLibrarySong) { navController.popBackStack() }
                     }
                     composable(Routes.SEARCH) {
                         SearchRoute(
@@ -694,7 +733,9 @@ private fun MainNavigation() {
                         onExpand = { settleNowPlaying(true) },
                         onPlayPause = playbackController::togglePlayPause,
                         onNext = playbackController::next,
-                        progressInset = tabBarVisible,
+                        progressInset = true,
+                        onSwipePrevious = playbackController::previousTrack,
+                        expansion = expansion,
                         onExpandDrag = { dragUpPx ->
                             nowPlayingOpen = true
                             settleJob?.cancel()
@@ -702,9 +743,49 @@ private fun MainNavigation() {
                                 nowPlayingProgress = (dragUpPx / miniPlayerTopPx).coerceIn(0f, 1f)
                             }
                         },
-                        onExpandRelease = { velocity -> settleNowPlaying(nowPlayingProgress > 0.05f || velocity < -FLING_VELOCITY) },
+                        onExpandRelease = { velocity ->
+                            settleNowPlaying(nowPlayingProgress > 0.35f || velocity < -FLING_VELOCITY, velocity)
+                        },
                         modifier = Modifier.onGloballyPositioned { miniPlayerTopPx = it.positionInRoot().y },
                     )
+                }
+                if (!keyboardUp) {
+                    NavigationBar(
+                        modifier = Modifier.graphicsLayer { alpha = 1f - nowPlayingProgress },
+                    ) {
+                        NavigationBarItem(
+                            selected = currentRoute == Routes.LIBRARY && section == LibraryTab.Home,
+                            onClick = {
+                                libraryModel.selectTab(LibraryTab.Home)
+                                openDestination(Routes.LIBRARY)
+                            },
+                            icon = { Icon(Icons.Rounded.Home, null) },
+                            label = { Text(stringResource(R.string.navigation_tabs_home)) },
+                        )
+                        NavigationBarItem(
+                            selected = currentRoute == Routes.SEARCH,
+                            onClick = { openDestination(Routes.SEARCH) },
+                            icon = { Icon(Icons.Rounded.Search, null) },
+                            label = { Text(stringResource(R.string.search)) },
+                        )
+                        NavigationBarItem(
+                            selected =
+                                currentRoute == Routes.ALL_SONGS ||
+                                    (currentRoute == Routes.LIBRARY && section != null && section != LibraryTab.Home),
+                            onClick = {
+                                libraryModel.selectTab(lastLibrarySection)
+                                openDestination(Routes.LIBRARY)
+                            },
+                            icon = { Icon(Icons.Rounded.LibraryMusic, null) },
+                            label = { Text(stringResource(R.string.your_library)) },
+                        )
+                        NavigationBarItem(
+                            selected = currentRoute == Routes.SETTINGS,
+                            onClick = { openDestination(Routes.SETTINGS) },
+                            icon = { Icon(Icons.Rounded.Settings, null) },
+                            label = { Text(stringResource(R.string.navigation_tabs_settings)) },
+                        )
+                    }
                 }
             }
 
@@ -714,6 +795,9 @@ private fun MainNavigation() {
                         Modifier
                             .fillMaxSize()
                             .graphicsLayer {
+                                val corner = 24.dp * (1f - nowPlayingProgress)
+                                shape = RoundedCornerShape(topStart = corner, topEnd = corner)
+                                clip = nowPlayingProgress < 1f
                                 translationY = if (nowPlayingFadeOut) 0f else (1f - nowPlayingProgress) * miniPlayerTopPx
                                 alpha = if (nowPlayingFadeOut) nowPlayingProgress else (nowPlayingProgress / EXPAND_FADE).coerceAtMost(1f)
                             }.draggable(
@@ -725,10 +809,13 @@ private fun MainNavigation() {
                                             nowPlayingProgress = (nowPlayingProgress - delta / miniPlayerTopPx).coerceIn(0f, 1f)
                                         }
                                     },
-                                onDragStopped = { velocity -> settleNowPlaying(nowPlayingProgress > 0.9f && velocity < FLING_VELOCITY) },
+                                onDragStopped = { velocity ->
+                                    settleNowPlaying(nowPlayingProgress > 0.65f && velocity < FLING_VELOCITY, velocity)
+                                },
                             ),
                 ) {
                     NowPlayingRoute(
+                        expansion = expansion,
                         onBack = { settleNowPlaying(false) },
                         onQueue = { showingQueue = true },
                         onViewAlbum = { albumId ->

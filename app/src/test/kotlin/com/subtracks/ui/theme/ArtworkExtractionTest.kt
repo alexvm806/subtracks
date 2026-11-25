@@ -75,6 +75,7 @@ class ArtworkExtractionTest {
             }
         }
         composeRule.waitUntil(timeoutMillis = 5_000) { colors != null }
+        composeRule.waitForIdle()
         assertNotNull(colors)
         assertTrue(colors!!.scheme.background.luminance() < 0.1f)
     }

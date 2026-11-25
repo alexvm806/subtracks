@@ -1,5 +1,6 @@
 package com.subtracks.playback
 
+import com.subtracks.data.repo.DEVICE_SOURCE_ID
 import com.subtracks.data.source.ServerActionSink
 import com.subtracks.log.Log
 import kotlinx.coroutines.CancellationException
@@ -122,21 +123,27 @@ class Scrobbler(
                     }
                     val durationMs = current.item?.durationMs?.takeIf { it > 0 } ?: current.durationMs
                     val event = policy.advance(current.item, durationMs, current.isPlaying, position) ?: return@collect
-                    scope.launch { submitLock.withLock { submit(event) } }
+                    val device = current.context?.sourceId == DEVICE_SOURCE_ID
+                    scope.launch { submitLock.withLock { submit(event, device) } }
                 }
         }
     }
 
-    private suspend fun submit(event: Scrobble) {
+    private suspend fun submit(
+        event: Scrobble,
+        device: Boolean,
+    ) {
         when (event) {
             is Scrobble.NowPlaying -> {
                 Log.i("scrobble", "now playing ${event.songId}")
+                if (device) return
                 attempt("now playing ${event.songId}") { sink.nowPlaying(event.songId) }
             }
 
             is Scrobble.Submission -> {
                 Log.i("scrobble", "submitting ${event.songId}")
                 attempt("record play ${event.songId}") { recordPlay(event.songId, event.time / 1000) }
+                if (device) return
                 attempt("scrobble ${event.songId}") { sink.scrobble(event.songId, event.time) }
             }
         }

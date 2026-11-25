@@ -17,6 +17,7 @@ import com.subtracks.data.model.Artist
 import com.subtracks.data.model.ArtistAlbums
 import com.subtracks.data.model.ArtistBio
 import com.subtracks.data.model.Disc
+import com.subtracks.data.model.LibraryTrack
 import com.subtracks.data.model.Playlist
 import com.subtracks.data.model.PlaylistSongItem
 import com.subtracks.data.model.QueueKind
@@ -58,6 +59,9 @@ class LibraryRepository(
 ) {
     val activeSourceId: Flow<Long?> = sourceRepository.activeSourceId()
 
+    fun allTracks(): Flow<PagingData<LibraryTrack>> =
+        sourceRepository.offline.flatMapLatest { offline -> pager(60) { db.libraryDao().allLibraryTracks(offline) } }
+
     fun hasAlbumPlayCount(sourceId: Long): Flow<Boolean> = db.libraryDao().hasAlbumPlayCount(sourceId)
 
     fun hasAlbumPlayed(sourceId: Long): Flow<Boolean> = db.libraryDao().hasAlbumPlayed(sourceId)
@@ -97,6 +101,11 @@ class LibraryRepository(
         sourceId: Long,
         limit: Int,
     ): Flow<List<AlbumSongItem>> = db.libraryDao().recentlyStarredSongs(sourceId, limit)
+
+    suspend fun moodSongIds(
+        sourceId: Long,
+        genres: List<String>,
+    ): List<String> = db.libraryDao().moodSongIds(sourceId, genres)
 
     fun genresByMostPlayed(sourceId: Long): Flow<List<String>> = db.libraryDao().genresByMostPlayed(sourceId)
 

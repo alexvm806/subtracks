@@ -34,6 +34,8 @@ import com.google.common.util.concurrent.ListenableFuture
 import com.subtracks.MainActivity
 import com.subtracks.R
 import com.subtracks.UserAgent
+import com.subtracks.data.net.NetworkMode
+import com.subtracks.data.net.networkMode
 import com.subtracks.data.prefs.UserPreferences
 import com.subtracks.data.repo.LibraryRepository
 import com.subtracks.data.repo.SourceRepository
@@ -43,8 +45,12 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 import org.koin.core.context.GlobalContext
@@ -59,6 +65,7 @@ class PlaybackService : MediaSessionService() {
     private var sourceRepository: SourceRepository? = null
     private var library: LibraryRepository? = null
     private var currentSongId: String? = null
+    private val sleepTimer by lazy { GlobalContext.get().get<SleepTimer>() }
     private var starred = false
     private var starJob: Job? = null
 
@@ -133,13 +140,62 @@ class PlaybackService : MediaSessionService() {
                             ),
                         ),
                 ).build()
+        scope.launch {
+            sleepTimer.limit.collectLatest { limit ->
+                exoPlayer.pauseAtEndOfMediaItems = limit is SleepLimit.Tracks && limit.remaining == 1
+                if (limit is SleepLimit.Deadline) {
+                    delay((limit.elapsedMs - SystemClock.elapsedRealtime()).coerceAtLeast(0L))
+                    if (sleepTimer.limit.value == limit) {
+                        exoPlayer.pause()
+                        sleepTimer.cancel()
+                    }
+                }
+            }
+        }
+        scope.launch {
+            combine(preferences.preloadNextTrack(), networkMode(applicationContext), sources.offline) { enabled, mode, offline ->
+                enabled && mode == NetworkMode.Wifi && !offline
+            }.distinctUntilChanged().collect { preload ->
+                exoPlayer.preloadConfiguration =
+                    if (preload) {
+                        ExoPlayer.PreloadConfiguration(3_000_000L)
+                    } else {
+                        ExoPlayer.PreloadConfiguration.DEFAULT
+                    }
+            }
+        }
+        scope.launch {
+            preferences.fadeSeconds().distinctUntilChanged().collectLatest { seconds ->
+                if (seconds > 0) {
+                    val fades = TrackFades(exoPlayer, scope, seconds)
+                    fades.start()
+                    try {
+                        awaitCancellation()
+                    } finally {
+                        fades.stop()
+                    }
+                }
+            }
+        }
         exoPlayer.addListener(
             object : Player.Listener {
                 override fun onMediaItemTransition(
                     mediaItem: MediaItem?,
                     reason: Int,
                 ) {
+                    if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO || reason == Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT) {
+                        sleepTimer.finishedTrack()
+                    }
                     observeStar(mediaItem?.mediaId)
+                }
+
+                override fun onPlayWhenReadyChanged(
+                    playWhenReady: Boolean,
+                    reason: Int,
+                ) {
+                    if (!playWhenReady && reason == Player.PLAY_WHEN_READY_CHANGE_REASON_END_OF_MEDIA_ITEM) {
+                        sleepTimer.cancel()
+                    }
                 }
             },
         )
@@ -226,6 +282,7 @@ class PlaybackService : MediaSessionService() {
 
     override fun onDestroy() {
         scope.cancel()
+        sleepTimer.cancel()
         artworkLoader?.shutdown()
         artworkLoader = null
         session?.run {

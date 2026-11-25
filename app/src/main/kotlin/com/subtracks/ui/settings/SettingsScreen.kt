@@ -62,6 +62,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -78,6 +79,7 @@ import com.subtracks.data.prefs.SongTapBehavior
 import com.subtracks.data.prefs.SortNameMode
 import com.subtracks.data.prefs.StreamQuality
 import com.subtracks.data.prefs.SyncMode
+import com.subtracks.data.repo.DEVICE_SOURCE_ID
 import com.subtracks.log.Log
 import com.subtracks.ui.components.DismissOnRequest
 import com.subtracks.ui.components.rememberViewportFill
@@ -103,6 +105,7 @@ private enum class SettingsDialog {
     SyncMode,
     ReplayGain,
     ReplayGainPreamp,
+    TrackFade,
     SortNames,
     SongTap,
 }
@@ -127,6 +130,8 @@ fun SettingsRoute(
     val downloadQuality by viewModel.downloadQuality.collectAsStateWithLifecycle()
     val downloadOverMetered by viewModel.downloadOverMetered.collectAsStateWithLifecycle()
     val scrobbling by viewModel.scrobbling.collectAsStateWithLifecycle()
+    val fadeSeconds by viewModel.fadeSeconds.collectAsStateWithLifecycle()
+    val preloadNextTrack by viewModel.preloadNextTrack.collectAsStateWithLifecycle()
     val keepScreenOn by viewModel.keepScreenOn.collectAsStateWithLifecycle()
     val offline by viewModel.offline.collectAsStateWithLifecycle()
     val verboseLogging by viewModel.verboseLogging.collectAsStateWithLifecycle()
@@ -152,6 +157,10 @@ fun SettingsRoute(
         sortNameMode = sortNameMode,
         songTapBehavior = songTapBehavior,
         keepScreenOn = keepScreenOn,
+        fadeSeconds = fadeSeconds,
+        onFadeSecondsChange = viewModel::setFadeSeconds,
+        preloadNextTrack = preloadNextTrack,
+        onPreloadNextTrackChange = viewModel::setPreloadNextTrack,
         offline = offline,
         verboseLogging = verboseLogging,
         onSelectSource = viewModel::selectSource,
@@ -209,6 +218,10 @@ fun SettingsScreen(
     scrobbling: Boolean,
     modifier: Modifier = Modifier,
     keepScreenOn: Boolean = false,
+    fadeSeconds: Int = 0,
+    onFadeSecondsChange: (Int) -> Unit = {},
+    preloadNextTrack: Boolean = false,
+    onPreloadNextTrackChange: (Boolean) -> Unit = {},
     offline: Boolean = false,
     verboseLogging: Boolean = false,
     syncMode: SyncMode = SyncMode.WifiOnly,
@@ -270,7 +283,8 @@ fun SettingsScreen(
                 ListItem(
                     headlineContent = { Text(source.name) },
                     supportingContent = {
-                        Text(source.address, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        val location = source.address.ifBlank { stringResource(R.string.device_music) }
+                        Text(location, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     },
                     leadingContent = {
                         RadioButton(
@@ -279,8 +293,10 @@ fun SettingsScreen(
                         )
                     },
                     trailingContent = {
-                        IconButton(onClick = { onEditServer(source.id) }) {
-                            Icon(Icons.Rounded.Edit, contentDescription = stringResource(R.string.edit_source_description, source.name))
+                        if (source.id != DEVICE_SOURCE_ID) {
+                            IconButton(onClick = { onEditServer(source.id) }) {
+                                Icon(Icons.Rounded.Edit, contentDescription = stringResource(R.string.edit_source_description, source.name))
+                            }
                         }
                     },
                     modifier =
@@ -406,6 +422,21 @@ fun SettingsScreen(
                     supportingContent = { Text(replayGainPreampLabel(LocalResources.current, replayGainPreamp)) },
                     modifier = Modifier.clickable { dialog = SettingsDialog.ReplayGainPreamp },
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                )
+            }
+            item {
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.track_fade_title)) },
+                    supportingContent = { Text(fadeDurationLabel(fadeSeconds)) },
+                    modifier = Modifier.clickable { dialog = SettingsDialog.TrackFade },
+                )
+            }
+            item {
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.preload_next_title)) },
+                    supportingContent = { Text(stringResource(R.string.preload_next_summary)) },
+                    trailingContent = { Switch(checked = preloadNextTrack, onCheckedChange = onPreloadNextTrackChange) },
+                    modifier = Modifier.clickable { onPreloadNextTrackChange(!preloadNextTrack) },
                 )
             }
             item {
@@ -618,6 +649,35 @@ fun SettingsScreen(
             )
         }
 
+        SettingsDialog.TrackFade -> {
+            var draft by remember(fadeSeconds) { mutableIntStateOf(fadeSeconds) }
+            AlertDialog(
+                onDismissRequest = { dialog = null },
+                title = { Text(stringResource(R.string.track_fade_title)) },
+                text = {
+                    Column {
+                        Text(stringResource(R.string.track_fade_help))
+                        Text(fadeDurationLabel(draft))
+                        Slider(
+                            value = draft.toFloat(),
+                            onValueChange = { draft = (it + 0.5f).toInt() },
+                            valueRange = 0f..12f,
+                            steps = 11,
+                        )
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        onFadeSecondsChange(draft)
+                        dialog = null
+                    }) { Text(stringResource(R.string.action_done)) }
+                },
+                dismissButton = {
+                    TextButton(onClick = { dialog = null }) { Text(stringResource(R.string.actions_cancel)) }
+                },
+            )
+        }
+
         SettingsDialog.ReplayGain -> {
             ReplayGainModeDialog(
                 selected = replayGainMode,
@@ -724,6 +784,14 @@ private fun SyncIntervalDialog(
         },
     )
 }
+
+@Composable
+private fun fadeDurationLabel(seconds: Int): String =
+    if (seconds == 0) {
+        stringResource(R.string.sync_mode_off)
+    } else {
+        pluralStringResource(R.plurals.track_fade_duration, seconds, seconds)
+    }
 
 @Composable
 private fun ConcurrencyDialog(

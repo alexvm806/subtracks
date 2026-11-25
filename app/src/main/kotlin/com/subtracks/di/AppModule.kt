@@ -21,6 +21,7 @@ import com.subtracks.data.prefs.UserPreferences
 import com.subtracks.data.prefs.createUserPreferences
 import com.subtracks.data.repo.ArtworkSeedRepository
 import com.subtracks.data.repo.ArtworkSeedStore
+import com.subtracks.data.repo.DeviceMusic
 import com.subtracks.data.repo.DownloadRepository
 import com.subtracks.data.repo.LibraryRepository
 import com.subtracks.data.repo.NetworkServerActionSink
@@ -36,6 +37,7 @@ import com.subtracks.playback.MediaSessionConnection
 import com.subtracks.playback.PlaybackController
 import com.subtracks.playback.PlayerConnection
 import com.subtracks.playback.Scrobbler
+import com.subtracks.playback.SleepTimer
 import com.subtracks.ui.NowPlayingLauncher
 import com.subtracks.ui.RootViewModel
 import com.subtracks.ui.downloads.DownloadsViewModel
@@ -110,6 +112,7 @@ fun appModule(
             scope = get(),
         )
     }
+    single { DeviceMusic(context.applicationContext, get(), get(named("io"))) }
     single { QueueRepository(get()) }
     single { ArtworkStore(downloadsRoot(context)) }
     single<ArtworkFetcher> { OkHttpArtworkFetcher(get()) }
@@ -131,7 +134,19 @@ fun appModule(
     single(createdAtStart = true) { DownloadNotifier(context.applicationContext, get(), scope = get()).also { it.start() } }
     single(createdAtStart = true) { SyncNotifier(context.applicationContext, get<SyncManager>().status, scope = get()).also { it.start() } }
     single<PlayerConnection> { MediaSessionConnection(context.applicationContext, get(), get()) }
-    single { PlaybackController(get(), get(), get(), get(), get(), showMessage = toast, scope = get(named("playback"))) }
+    single { SleepTimer() }
+    single {
+        PlaybackController(
+            get(),
+            get(),
+            get(),
+            get(),
+            get(),
+            showMessage = toast,
+            scope = get(named("playback")),
+            sleepTimer = get(),
+        )
+    }
     single(createdAtStart = true) {
         val playback = get<PlaybackController>()
         Scrobbler(

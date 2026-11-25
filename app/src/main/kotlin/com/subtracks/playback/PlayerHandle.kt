@@ -74,6 +74,8 @@ interface PlayerHandle {
     interface Listener {
         fun onTransition()
 
+        fun onCheckpointRequested() = Unit
+
         fun onEvents()
 
         fun onError(message: UiMessage) {

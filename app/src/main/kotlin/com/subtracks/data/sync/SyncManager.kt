@@ -5,6 +5,7 @@ import com.subtracks.UiMessage
 import com.subtracks.data.db.SubtracksDatabase
 import com.subtracks.data.model.QueueOrigin
 import com.subtracks.data.prefs.UserPreferences
+import com.subtracks.data.repo.DEVICE_SOURCE_ID
 import com.subtracks.data.repo.QueueRepository
 import com.subtracks.data.repo.SourceRepository
 import com.subtracks.data.source.ServerActionSink
@@ -70,6 +71,7 @@ class SyncManager(
     }
 
     private suspend fun runSync(silent: Boolean) {
+        if (sourceRepository.activeSourceIdOnce() == DEVICE_SOURCE_ID) return
         if (sourceRepository.offline.value) {
             if (!silent) {
                 val offline = UiMessage(R.string.sync_offline)

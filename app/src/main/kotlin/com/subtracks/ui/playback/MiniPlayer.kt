@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -23,6 +22,7 @@ import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -38,6 +38,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.subtracks.R
@@ -65,9 +66,13 @@ fun MiniPlayer(
     progressInset: Boolean = false,
     onExpandDrag: (Float) -> Unit = {},
     onExpandRelease: (Float) -> Unit = {},
+    onSwipePrevious: (() -> Unit)? = null,
+    expansion: PlayerExpansion? = null,
 ) {
     val item = state.item ?: return
     var dragUpPx by remember { mutableFloatStateOf(0f) }
+    var dragSidePx by remember { mutableFloatStateOf(0f) }
+    val swipeThreshold = with(LocalDensity.current) { 48.dp.toPx() }
     val progress = if (state.durationMs > 0) (positionMs.toFloat() / state.durationMs).coerceIn(0f, 1f) else 0f
     val progressInsetDp by animateDpAsState(
         targetValue = if (progressInset) PROGRESS_INSET else 0.dp,
@@ -101,6 +106,18 @@ fun MiniPlayer(
                             onExpandRelease(velocity)
                             dragUpPx = 0f
                         },
+                    ).draggable(
+                        orientation = Orientation.Horizontal,
+                        enabled = onSwipePrevious != null,
+                        state = rememberDraggableState { dragSidePx += it },
+                        onDragStarted = { dragSidePx = 0f },
+                        onDragStopped = {
+                            when {
+                                dragSidePx < -swipeThreshold && state.hasNext -> onNext()
+                                dragSidePx > swipeThreshold && state.hasPrevious -> onSwipePrevious?.invoke()
+                                else -> Unit
+                            }
+                        },
                     ).clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
@@ -121,7 +138,6 @@ fun MiniPlayer(
                     modifier =
                         Modifier
                             .fillMaxWidth()
-                            .navigationBarsPadding()
                             .padding(start = 8.dp, top = 8.dp, end = 8.dp, bottom = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -129,12 +145,12 @@ fun MiniPlayer(
                     CoverArt(
                         ref = coverArt,
                         name = item.title,
-                        modifier = Modifier.size(48.dp).clip(RoundedCornerShape(6.dp)),
+                        modifier = Modifier.size(48.dp).captureAnchor { expansion?.cover = it }.clip(RoundedCornerShape(6.dp)),
                     )
-                    Column(Modifier.weight(1f)) {
+                    Column(Modifier.weight(1f).captureAnchor { expansion?.metadata = it }) {
                         Text(
                             text = item.title,
-                            style = MaterialTheme.typography.bodyMedium,
+                            style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.onSurface,
                             maxLines = 1,
                             modifier = Modifier.basicMarquee(),
@@ -148,10 +164,13 @@ fun MiniPlayer(
                         )
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        IconButton(onClick = onPlayPause, modifier = Modifier.size(48.dp)) {
+                        FilledIconButton(
+                            onClick = onPlayPause,
+                            modifier = Modifier.size(48.dp).captureAnchor { expansion?.transport = it },
+                        ) {
                             if (state.isBuffering && state.isPlaying) {
                                 CircularProgressIndicator(
-                                    color = MaterialTheme.colorScheme.onSurface,
+                                    color = MaterialTheme.colorScheme.onPrimary,
                                     strokeWidth = 3.dp,
                                     modifier = Modifier.size(24.dp),
                                 )
@@ -166,8 +185,8 @@ fun MiniPlayer(
                                         } else {
                                             stringResource(R.string.controls_play)
                                         },
-                                    tint = MaterialTheme.colorScheme.onSurface,
-                                    modifier = Modifier.size(36.dp),
+                                    tint = MaterialTheme.colorScheme.onPrimary,
+                                    modifier = Modifier.size(28.dp),
                                 )
                             }
                         }
@@ -176,7 +195,7 @@ fun MiniPlayer(
                                 imageVector = Icons.Rounded.SkipNext,
                                 contentDescription = stringResource(R.string.controls_next),
                                 tint = MaterialTheme.colorScheme.onSurface,
-                                modifier = Modifier.size(36.dp),
+                                modifier = Modifier.size(28.dp),
                             )
                         }
                     }

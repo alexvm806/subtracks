@@ -147,12 +147,12 @@ class PlaybackControllerTest {
         seedAlbum(60, sourceId = 1)
 
         controller.playAlbum(1, "al1", 30)
-        await { handle.operations.contains("play") }
+        await { handle.operations.contains("play") && handle.itemCount == 51 }
 
         assertEquals(51, handle.itemCount)
         assertEquals(25, handle.currentIndex)
         assertEquals("s31", handle.currentItem?.id)
-        assertEquals(listOf("prepare", "play"), handle.operations.takeLast(2))
+        assertEquals(listOf("prepare", "play"), handle.operations.filter { it == "prepare" || it == "play" })
     }
 
     @Test
@@ -1127,6 +1127,7 @@ class PlaybackControllerTest {
                 ?.id == "s2"
         }
 
+        assertFalse(restoredHandle.playWhenReady)
         assertEquals(12_000L, restored.positionMs.value)
     }
 
@@ -1676,6 +1677,22 @@ class PlaybackControllerTest {
 
         assertTrue(controller.state.value.hasNext)
         assertTrue(controller.state.value.hasPrevious)
+    }
+
+    @Test
+    fun queueTimerStopsBeforeRepeatAllWraps() {
+        seedAlbum(3, sourceId = 1)
+        controller.playAlbum(1, "al1", 2)
+        await { controller.state.value.isPlaying }
+        controller.cycleRepeat()
+        controller.sleepTimer.atQueueEnd()
+
+        handle.finish()
+        await { controller.sleepTimer.limit.value == null && !controller.state.value.isPlaying }
+
+        assertFalse(controller.state.value.isPlaying)
+        assertEquals("s3", handle.currentItem?.id)
+        assertEquals(RepeatMode.All, controller.state.value.repeat)
     }
 
     @Test
@@ -2926,6 +2943,19 @@ class PlaybackControllerTest {
             "setWindow(size=3, start=0, position=12000)",
             restoredHandle.operations.first { it.startsWith("setWindow") },
         )
+    }
+
+    @Test
+    fun checkpointCannotOverwriteTheNextQueueEntry() {
+        runBlocking {
+            queues.setCursor(0)
+            assertTrue(queues.checkpointPosition(0, 8_250))
+            queues.setCursor(1)
+            assertFalse(queues.checkpointPosition(0, 9_500))
+            assertEquals(0L, queues.cursorPositionMs())
+            assertTrue(queues.checkpointPosition(1, 1_250))
+            assertEquals(1_250L, queues.cursorPositionMs())
+        }
     }
 
     @Test

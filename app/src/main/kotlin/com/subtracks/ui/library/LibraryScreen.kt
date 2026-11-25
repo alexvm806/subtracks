@@ -97,8 +97,10 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
@@ -239,6 +241,8 @@ fun LibraryRoute(
     contextMenuHost: ContextMenuHost? = null,
     setStar: (StarType, String, Boolean) -> Unit,
     bottomInset: Dp,
+    shellNavigation: Boolean = false,
+    sourceMenu: @Composable () -> Unit = {},
     viewModel: LibraryViewModel = koinViewModel(),
     playbackController: PlaybackController = koinInject(),
 ) {
@@ -292,6 +296,8 @@ fun LibraryRoute(
         syncing = syncing,
         refreshing = refreshing,
         bottomInset = bottomInset,
+        shellNavigation = shellNavigation,
+        sourceMenu = sourceMenu,
         artwork = artwork,
         albums = viewModel.albums,
         artists = viewModel.artists,
@@ -389,6 +395,8 @@ fun LibraryScreen(
     syncing: Boolean = false,
     refreshing: Boolean = false,
     bottomInset: Dp = 0.dp,
+    shellNavigation: Boolean = false,
+    sourceMenu: @Composable () -> Unit = {},
     listQuery: ListQuery = ListQuery(""),
     resetKeys: Map<LibraryTab, Any?> = emptyMap(),
     sortOptions: List<SortOption> = emptyList(),
@@ -448,8 +456,10 @@ fun LibraryScreen(
     val filtersActive = listQuery.starred != StarredFilter.Any || listQuery.downloaded || search.isNotEmpty()
     var tabBarHeightPx by remember { mutableFloatStateOf(with(density) { (TAB_BAR_CONTENT_HEIGHT + bottomInset).toPx() }) }
     val tabBarHeight = with(density) { tabBarHeightPx.toDp() }
-    val listTopInset = statusBarTop
-    val listBottomInset = tabBarHeight + BOTTOM_CLEARANCE
+    val showLibrarySections = shellNavigation && selectedTab != LibraryTab.Home && !searchActive
+    val listTopInset = statusBarTop + if (showLibrarySections) TAB_BAR_CONTENT_HEIGHT else 0.dp
+    val controlsInset = if (shellNavigation) bottomInset else tabBarHeight
+    val listBottomInset = controlsInset + if (selectedTab == LibraryTab.Home && shellNavigation) 0.dp else BOTTOM_CLEARANCE
     val headerColor = artwork?.let(::playerSurfaceColor) ?: MaterialTheme.colorScheme.background
     val listOptionsLabel = stringResource(R.string.list_options)
 
@@ -559,7 +569,31 @@ fun LibraryScreen(
                     .statusBarScrim(),
         )
 
-        if (!searchActive) {
+        if (showLibrarySections) {
+            Row(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .background(headerColor)
+                        .statusBarsPadding()
+                        .horizontalScroll(rememberScrollState())
+                        .height(TAB_BAR_CONTENT_HEIGHT)
+                        .padding(horizontal = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                sourceMenu()
+                LibraryTab.entries.filter { it != LibraryTab.Home }.forEach { tab ->
+                    FilterChip(
+                        selected = selectedTab == tab,
+                        onClick = { if (tab == selectedTab) topRequest++ else onTabSelected(tab) },
+                        label = { Text(stringResource(tab.label)) },
+                    )
+                }
+                if (syncing) CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+            }
+        }
+        if (!searchActive && !shellNavigation) {
             Column(
                 modifier =
                     Modifier
@@ -604,7 +638,7 @@ fun LibraryScreen(
                     modifier =
                         Modifier
                             .align(Alignment.BottomStart)
-                            .padding(start = 16.dp, bottom = tabBarHeight + 16.dp)
+                            .padding(start = 16.dp, bottom = controlsInset + 16.dp)
                             .size(48.dp),
                 ) {
                     Icon(
@@ -615,39 +649,41 @@ fun LibraryScreen(
                 }
             }
             val searchFab = selectedTab == LibraryTab.Home
-            FloatingActionButton(
-                onClick = { if (searchFab) onOpenSearch() else showOptions = true },
-                containerColor = fabContainerColor,
-                contentColor = fabContentColor,
-                elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 12.dp),
-                modifier = Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = tabBarHeight + 16.dp),
-            ) {
-                if (searchFab) {
-                    Icon(Icons.Rounded.Search, contentDescription = stringResource(R.string.search))
-                } else {
-                    Box(Modifier.size(28.dp), contentAlignment = Alignment.Center) {
-                        ListOptionsGlyph(
-                            modifier =
-                                Modifier
-                                    .size(24.dp)
-                                    .semantics { contentDescription = listOptionsLabel },
-                        )
-                        if (filtersActive) {
-                            Box(
+            if (!shellNavigation || !searchFab) {
+                FloatingActionButton(
+                    onClick = { if (searchFab) onOpenSearch() else showOptions = true },
+                    containerColor = fabContainerColor,
+                    contentColor = fabContentColor,
+                    elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 12.dp),
+                    modifier = Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = controlsInset + 16.dp),
+                ) {
+                    if (searchFab) {
+                        Icon(Icons.Rounded.Search, contentDescription = stringResource(R.string.search))
+                    } else {
+                        Box(Modifier.size(28.dp), contentAlignment = Alignment.Center) {
+                            ListOptionsGlyph(
                                 modifier =
                                     Modifier
-                                        .align(Alignment.TopEnd)
-                                        .offset(x = 1.dp, y = 2.5.dp)
-                                        .size(11.dp)
-                                        .background(fabContainerColor, CircleShape),
-                                contentAlignment = Alignment.Center,
-                            ) {
+                                        .size(24.dp)
+                                        .semantics { contentDescription = listOptionsLabel },
+                            )
+                            if (filtersActive) {
                                 Box(
                                     modifier =
                                         Modifier
-                                            .size(7.dp)
-                                            .background(fabContentColor, CircleShape),
-                                )
+                                            .align(Alignment.TopEnd)
+                                            .offset(x = 1.dp, y = 2.5.dp)
+                                            .size(11.dp)
+                                            .background(fabContainerColor, CircleShape),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Box(
+                                        modifier =
+                                            Modifier
+                                                .size(7.dp)
+                                                .background(fabContentColor, CircleShape),
+                                    )
+                                }
                             }
                         }
                     }
@@ -866,7 +902,7 @@ internal fun LibraryTabs(
     artwork: ArtworkColors?,
     syncing: Boolean = false,
 ) {
-    val indicatorStretch = 18.dp
+    val indicatorStretch = 5.dp
     val density = LocalDensity.current
     val layoutDirection = LocalLayoutDirection.current
     val bounds = remember { mutableStateMapOf<Int, Rect>() }
@@ -897,7 +933,7 @@ internal fun LibraryTabs(
     val indicatorRight = current?.let { it.right + ((neighbour?.right ?: it.right) - it.right) * step + rightExtra }
 
     val headerColor = artwork?.let(::playerSurfaceColor) ?: MaterialTheme.colorScheme.background
-    val indicatorColor = artwork?.scheme?.primary ?: MaterialTheme.colorScheme.onBackground
+    val indicatorColor = artwork?.scheme?.primary ?: MaterialTheme.colorScheme.primary
     val tabContentHeightPx = with(density) { (TAB_ICON_SIZE + TAB_VERTICAL_PADDING * 2).toPx() }
 
     val scrollState = rememberScrollState()
@@ -1023,7 +1059,7 @@ private fun TabButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val selectedContent = artwork?.scheme?.onPrimary ?: MaterialTheme.colorScheme.background
+    val selectedContent = artwork?.scheme?.onPrimary ?: MaterialTheme.colorScheme.onPrimary
     val paddingStart = with(LocalDensity.current) { 8.dp.toPx() }
     var tabLeft by remember { mutableFloatStateOf(0f) }
     val clipStart = indicatorLeft?.minus(tabLeft + paddingStart)
@@ -1032,7 +1068,8 @@ private fun TabButton(
         modifier =
             modifier
                 .onGloballyPositioned { tabLeft = it.boundsInParent().left }
-                .clickable(onClick = onClick)
+                .semantics { selected = progress > 0.5f }
+                .clickable(role = Role.Tab, onClick = onClick)
                 .height(TOUCH_TARGET),
         contentAlignment = Alignment.Center,
     ) {

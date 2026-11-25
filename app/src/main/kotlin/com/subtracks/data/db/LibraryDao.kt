@@ -18,6 +18,7 @@ import com.subtracks.data.model.ArtistBio
 import com.subtracks.data.model.ArtistSearch
 import com.subtracks.data.model.Disc
 import com.subtracks.data.model.DiscKey
+import com.subtracks.data.model.LibraryTrack
 import com.subtracks.data.model.Playlist
 import com.subtracks.data.model.PlaylistSearch
 import com.subtracks.data.model.PlaylistSong
@@ -258,6 +259,27 @@ internal val ALBUMS_FOR_ARTIST_DOWNLOADED =
 @Dao
 @DaoReturnTypeConverters(PagingSourceDaoReturnTypeConverter::class)
 interface LibraryDao {
+    @Query(
+        "SELECT songs.sourceId, songs.id AS songId, sources.name AS sourceName, songs.title, songs.artist " +
+            "FROM songs JOIN sources ON sources.id = songs.sourceId " +
+            "WHERE :offline = 0 OR EXISTS (SELECT 1 FROM song_downloads d " +
+            "WHERE d.sourceId = songs.sourceId AND d.songId = songs.id AND d.status = 'Completed') " +
+            "ORDER BY songs.title COLLATE NOCASE, songs.sourceId, songs.id",
+    )
+    fun allLibraryTracks(offline: Boolean): PagingSource<Int, LibraryTrack>
+
+    @Query(
+        "UPDATE albums SET songCount = (SELECT COUNT(*) FROM songs WHERE sourceId = :sourceId AND albumId = albums.id) " +
+            "WHERE sourceId = :sourceId",
+    )
+    suspend fun recountDeviceAlbums(sourceId: Long)
+
+    @Query("DELETE FROM albums WHERE sourceId = :sourceId AND songCount = 0")
+    suspend fun removeEmptyDeviceAlbums(sourceId: Long)
+
+    @Query("DELETE FROM artists WHERE sourceId = :sourceId AND songCount = 0 AND albumCount = 0")
+    suspend fun removeEmptyDeviceArtists(sourceId: Long)
+
     @Upsert
     suspend fun upsertArtists(items: List<Artist>)
 
@@ -514,6 +536,15 @@ interface LibraryDao {
         limit: Int,
         sortMode: String = "",
     ): Flow<List<AlbumSongItem>>
+
+    @Query(
+        "SELECT DISTINCT songId FROM song_genres WHERE sourceId = :sourceId AND genre IN (:genres) " +
+            "ORDER BY songId LIMIT 180",
+    )
+    suspend fun moodSongIds(
+        sourceId: Long,
+        genres: List<String>,
+    ): List<String>
 
     @Query(
         "SELECT song_genres.genre FROM song_genres " +

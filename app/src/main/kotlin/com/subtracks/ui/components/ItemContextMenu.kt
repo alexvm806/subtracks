@@ -18,10 +18,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Album
+import androidx.compose.material.icons.rounded.Bedtime
 import androidx.compose.material.icons.rounded.Cancel
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.Lyrics
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.Star
@@ -148,6 +150,8 @@ class ItemActions(
     val setStar: (StarType, String, Boolean) -> Unit = { _, _, _ -> },
     val viewAlbum: ((String) -> Unit)? = null,
     val viewArtist: ((String) -> Unit)? = null,
+    val lyrics: (() -> Unit)? = null,
+    val sleepTimer: (() -> Unit)? = null,
 )
 
 class ContextMenuHost {
@@ -247,6 +251,12 @@ fun ItemContextMenu(
             MenuHeader(target)
             when (target) {
                 is MenuTarget.Song -> {
+                    actions.lyrics?.let { open ->
+                        MenuItem(Icons.Rounded.Lyrics, stringResource(R.string.lyrics_title)) { replaceWith(open) }
+                    }
+                    actions.sleepTimer?.let { open ->
+                        MenuItem(Icons.Rounded.Bedtime, stringResource(R.string.sleep_timer)) { replaceWith(open) }
+                    }
                     queueItems()
                     DownloadItem(target.download, target.song, actions, ::dismiss)
                     StarItem(

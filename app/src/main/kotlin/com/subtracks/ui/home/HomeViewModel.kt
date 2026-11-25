@@ -45,6 +45,7 @@ data class HomeFeed(
     val recentlyAddedAlbums: List<Album> = emptyList(),
     val rediscoverAlbums: List<Album> = emptyList(),
     val loading: Boolean = false,
+    val sourceId: Long? = null,
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -120,7 +121,7 @@ class HomeViewModel(
                         addedAlbums = found.addedAlbums,
                         rediscover = found.rediscover,
                         hasPlayData = played,
-                    )
+                    ).copy(sourceId = sourceId)
                 }
             }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeFeed(loading = true))
 
@@ -133,6 +134,14 @@ class HomeViewModel(
         artist: Artist,
         forIcon: Boolean = true,
     ): ArtistArt = sourceRepository.artistArt(artist, forIcon)
+
+    fun playMood(genres: List<String>) {
+        val source = feed.value.sourceId ?: return
+        viewModelScope.launch {
+            val ids = libraryRepository.moodSongIds(source, genres)
+            if (feed.value.sourceId == source) playbackController.shuffleMood(source, ids)
+        }
+    }
 
     fun playStarred(song: Song) {
         viewModelScope.playStarredList(libraryRepository, playbackController, song)

@@ -1,6 +1,8 @@
 package com.subtracks.data.repo
 
 import android.net.Uri
+import androidx.room3.immediateTransaction
+import androidx.room3.useWriterConnection
 import com.subtracks.R
 import com.subtracks.UiMessage
 import com.subtracks.data.db.SubtracksDatabase
@@ -11,6 +13,7 @@ import com.subtracks.data.download.EngineDownload
 import com.subtracks.data.download.EngineRequest
 import com.subtracks.data.download.EngineStatus
 import com.subtracks.data.download.looksLikeAudio
+import com.subtracks.data.model.Album
 import com.subtracks.data.model.Artist
 import com.subtracks.data.model.ArtistBio
 import com.subtracks.data.model.BulkDownloadAction
@@ -21,7 +24,9 @@ import com.subtracks.data.model.DownloadedSong
 import com.subtracks.data.model.ListDownloadStatus
 import com.subtracks.data.model.QueueKind
 import com.subtracks.data.model.QueueOrigin
+import com.subtracks.data.model.Song
 import com.subtracks.data.model.SongDownload
+import com.subtracks.data.model.Source
 import com.subtracks.data.model.artistImageKey
 import com.subtracks.data.model.coverArtKey
 import com.subtracks.data.repo.QueueResetPoint
@@ -39,6 +44,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
@@ -77,6 +83,7 @@ class DownloadRepository(
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + dispatcher),
 ) {
     private val mutex = Mutex()
+    private val loadedSource = MutableStateFlow<Long?>(null)
     private val loaded = CompletableDeferred<Unit>()
     private var pollJob: Job? = null
 
@@ -104,6 +111,7 @@ class DownloadRepository(
                     if (resetPoint == null) resetPoint = queueRepository.captureResetPoint()
                     downloadStates().collect { (sourceId, emittedRows) ->
                         statesFlow.value = emittedRows
+                        loadedSource.value = sourceId
                         val unchanged = sameResetRelevantEmission(reconciled, sourceId, emittedRows)
                         val pending =
                             unchanged && sourceId != null &&
@@ -236,9 +244,87 @@ class DownloadRepository(
             if (sourceId == null) flowOf(emptyList()) else db.downloadDao().activeDownloads(sourceId)
         }
 
+    internal suspend fun awaitSource(sourceId: Long) {
+        if (started) loadedSource.first { it == sourceId }
+    }
+
     suspend fun awaitLoaded() {
         if (started) loaded.await()
     }
+
+    private suspend fun removeDeviceMetadata(
+        sourceId: Long,
+        ids: List<String>,
+    ) {
+        if (sourceId != DEVICE_SOURCE_ID) return
+        db.useWriterConnection { connection ->
+            connection.immediateTransaction {
+                val dao = db.libraryDao()
+                ids.chunked(DELETE_CHUNK).forEach { dao.deleteSongs(sourceId, it) }
+                dao.recountDeviceAlbums(sourceId)
+                dao.removeEmptyDeviceAlbums(sourceId)
+                dao.recomputeArtistAggregates(sourceId)
+                dao.removeEmptyDeviceArtists(sourceId)
+            }
+        }
+    }
+
+    internal fun deviceStagingFile(): File {
+        downloadsDir.mkdirs()
+        return File.createTempFile("import-", ".part", downloadsDir)
+    }
+
+    internal suspend fun refreshDeviceArtists() {
+        db.libraryDao().recomputeArtistAggregates(DEVICE_SOURCE_ID)
+    }
+
+    internal suspend fun storeDeviceSong(
+        staging: File,
+        song: Song,
+        album: Album,
+        artists: List<Artist>,
+        sourceName: String,
+    ): Boolean =
+        mutex.withLock {
+            val sources = db.sourcesDao()
+            val library = db.libraryDao()
+            val destination = file(DEVICE_SOURCE_ID, song.id)
+            val existing = library.songOnce(DEVICE_SOURCE_ID, song.id)
+            val downloaded = db.downloadDao().find(DEVICE_SOURCE_ID, song.id)
+            if (existing != null && destination.isFile && downloaded?.status == DownloadStatus.Completed) {
+                return@withLock false
+            }
+            val size = staging.length()
+            dir(DEVICE_SOURCE_ID).mkdirs()
+            db.useWriterConnection { connection ->
+                connection.immediateTransaction {
+                    if (sources.sourceOnce(DEVICE_SOURCE_ID) == null) {
+                        val active = sources.activeSourceIdOnce() == null
+                        sources.insertSource(Source(DEVICE_SOURCE_ID, sourceName, "", active, System.currentTimeMillis()))
+                    }
+                    if (existing == null) {
+                        for (artist in artists) {
+                            if (library.artistOnce(DEVICE_SOURCE_ID, artist.id) == null) library.upsertArtists(listOf(artist))
+                        }
+                        val previous = library.albumOnce(DEVICE_SOURCE_ID, album.id)
+                        library.upsertAlbums(listOf(previous?.copy(songCount = previous.songCount + 1) ?: album))
+                        library.upsertSongs(listOf(song))
+                    }
+                    db.downloadDao().upsert(
+                        SongDownload(
+                            sourceId = DEVICE_SOURCE_ID,
+                            songId = song.id,
+                            status = DownloadStatus.Completed,
+                            bytes = size,
+                            total = size,
+                            downloadedAt = System.currentTimeMillis(),
+                        ),
+                    )
+                    check(staging.renameTo(destination)) { "Could not store imported audio" }
+                }
+            }
+            true
+        }
 
     fun localFile(songId: String): File? =
         statesFlow.value[songId]
@@ -498,6 +584,7 @@ class DownloadRepository(
             captureForReset(sourceId, group.filter { it.status == DownloadStatus.Completed }.map { it.songId })
             group.forEach { file(sourceId, it.songId).delete() }
             group.map { it.songId }.chunked(DELETE_CHUNK).forEach { db.downloadDao().deleteSongs(sourceId, it) }
+            removeDeviceMetadata(sourceId, group.map { it.songId })
             if (group.any { it.status == DownloadStatus.Completed }) {
                 refreshDownloadedArtistArt(sourceId, group.map { it.songId })
             }
@@ -743,6 +830,7 @@ class DownloadRepository(
         row.engineId?.let { engine.cancel(listOf(it)) }
         file(sourceId, songId).delete()
         db.downloadDao().delete(sourceId, songId)
+        removeDeviceMetadata(sourceId, listOf(songId))
         if (row.status == DownloadStatus.Completed) refreshDownloadedArtistArt(sourceId, listOf(songId))
         return true
     }
