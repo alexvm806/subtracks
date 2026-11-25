@@ -201,7 +201,6 @@ fun NowPlayingRoute(
     libraryRepository: LibraryRepository = koinInject(),
     downloadRepository: DownloadRepository = koinInject(),
     userPreferences: UserPreferences = koinInject(),
-    sources: SourceRepository = koinInject(),
 ) {
     val state by controller.state.collectAsStateWithLifecycle()
     val keepScreenOn by remember { userPreferences.keepScreenOn() }.collectAsStateWithLifecycle(initialValue = false)
@@ -314,6 +313,7 @@ fun NowPlayingRoute(
 
     val track = song
     if (showLyrics && track != null && track.id == songId && track.sourceId == sourceId) {
+        val sources: SourceRepository = koinInject()
         val offline by sources.offline.collectAsStateWithLifecycle()
         key(track.sourceId, track.id) {
             LyricsDialog(

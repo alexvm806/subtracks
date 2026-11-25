@@ -15,14 +15,19 @@ import com.subtracks.playback.PlaybackController
 import com.subtracks.ui.components.ArtistArt
 import com.subtracks.ui.components.artistArt
 import com.subtracks.ui.home.playSongInContext
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 
@@ -52,20 +57,40 @@ class SearchViewModel(
         libraryRepository.activeSourceId
             .flatMapLatest { sourceId ->
                 _query.flatMapLatest { text ->
-                    if (sourceId == null || !searchReady(text)) {
+                    if (sourceId == null || !searchReady(text.trim())) {
                         flowOf(SearchResults())
                     } else {
-                        combine(
-                            libraryRepository.searchAlbums(sourceId, text),
-                            libraryRepository.searchArtists(sourceId, text),
-                            libraryRepository.searchPlaylists(sourceId, text),
-                            libraryRepository.searchSongs(sourceId, text),
-                        ) { albums, artists, playlists, songs ->
-                            SearchResults(albums, artists, playlists, songs)
+                        flow {
+                            delay(160)
+                            val query = text.trim()
+                            val probes = spellingProbes(query)
+                            emitAll(
+                                matches(sourceId, query).flatMapLatest { exact ->
+                                    if (!exact.isEmpty || probes.isEmpty()) {
+                                        flowOf(exact)
+                                    } else {
+                                        combine(probes.map { matches(sourceId, it) }) { candidates ->
+                                            spellingResults(query, candidates.toList())
+                                        }.flowOn(Dispatchers.Default)
+                                    }
+                                },
+                            )
                         }.onStart { emit(SearchResults(loading = true)) }
                     }
                 }
             }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SearchResults())
+
+    private fun matches(
+        sourceId: Long,
+        text: String,
+    ) = combine(
+        libraryRepository.searchAlbums(sourceId, text),
+        libraryRepository.searchArtists(sourceId, text),
+        libraryRepository.searchPlaylists(sourceId, text),
+        libraryRepository.searchSongs(sourceId, text),
+    ) { albums, artists, playlists, songs ->
+        SearchResults(albums, artists, playlists, songs)
+    }
 
     fun setQuery(value: String) {
         _query.value = value
