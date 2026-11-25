@@ -18,6 +18,8 @@ import com.subtracks.data.prefs.UserPreferences
 import com.subtracks.data.source.MusicSource
 import com.subtracks.data.source.declaredStreamLength
 import com.subtracks.data.source.streamLengthSuffix
+import com.subtracks.data.source.subsonic.LyricLine
+import com.subtracks.data.source.subsonic.SongLyrics
 import com.subtracks.data.source.subsonic.SubsonicClient
 import com.subtracks.log.Log
 import kotlinx.coroutines.CoroutineScope
@@ -33,6 +35,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
+import java.io.File
 import com.subtracks.data.source.subsonic.SubsonicSource as SubsonicMusicSource
 
 class SourceRepository(
@@ -278,6 +281,19 @@ class SourceRepository(
         val config = db.sourcesDao().activeSubsonicConfigOnce() ?: return null
         return config.toMusicSource(quality.value, prefs.syncConcurrency().first())
     }
+
+    internal suspend fun lyrics(
+        cacheDir: File,
+        sourceId: Long,
+        songId: String,
+        artist: String?,
+        title: String,
+    ): List<LyricLine> =
+        withContext(Dispatchers.IO) {
+            val config = db.sourcesDao().subsonicConfigOnce(sourceId) ?: return@withContext emptyList()
+            val key = "$sourceId\u0000${config.address}\u0000${config.username}"
+            SongLyrics.load(cacheDir, key, songId, artist, title, _offline.value, config.toClient())
+        }
 
     suspend fun artistBiography(
         sourceId: Long,

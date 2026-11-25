@@ -50,6 +50,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -82,6 +83,7 @@ import com.subtracks.data.model.Song
 import com.subtracks.data.prefs.UserPreferences
 import com.subtracks.data.repo.DownloadRepository
 import com.subtracks.data.repo.LibraryRepository
+import com.subtracks.data.repo.SourceRepository
 import com.subtracks.data.source.StarType
 import com.subtracks.playback.PlaybackController
 import com.subtracks.playback.PlaybackState
@@ -199,6 +201,7 @@ fun NowPlayingRoute(
     libraryRepository: LibraryRepository = koinInject(),
     downloadRepository: DownloadRepository = koinInject(),
     userPreferences: UserPreferences = koinInject(),
+    sources: SourceRepository = koinInject(),
 ) {
     val state by controller.state.collectAsStateWithLifecycle()
     val keepScreenOn by remember { userPreferences.keepScreenOn() }.collectAsStateWithLifecycle(initialValue = false)
@@ -208,6 +211,7 @@ fun NowPlayingRoute(
     val downloads by downloadRepository.states().collectAsStateWithLifecycle()
     val download = songId?.let { downloads[it] }
     val scope = rememberCoroutineScope()
+    var showLyrics by remember { mutableStateOf(false) }
     var showTimer by remember { mutableStateOf(false) }
     var showArtistChooser by remember { mutableStateOf(false) }
     LaunchedEffect(songId) { showArtistChooser = false }
@@ -229,6 +233,7 @@ fun NowPlayingRoute(
                 }
             },
             setStar = setStar,
+            lyrics = { showLyrics = true },
             sleepTimer = { showTimer = true },
             viewAlbum = onViewAlbum,
             viewArtist = onViewArtist,
@@ -307,6 +312,20 @@ fun NowPlayingRoute(
         modifier = modifier,
     )
 
+    val track = song
+    if (showLyrics && track != null && track.id == songId && track.sourceId == sourceId) {
+        val offline by sources.offline.collectAsStateWithLifecycle()
+        key(track.sourceId, track.id) {
+            LyricsDialog(
+                title = track.title,
+                positionMs = positionMs,
+                offline = offline,
+                load = { sources.lyrics(context.cacheDir, track.sourceId, track.id, track.artist, track.title) },
+                onSeek = controller::seekTo,
+                onDismiss = { showLyrics = false },
+            )
+        }
+    }
     if (showTimer) {
         SleepTimerDialog(controller.sleepTimer) { showTimer = false }
     }
