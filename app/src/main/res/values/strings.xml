@@ -417,4 +417,15 @@
     <string name="invalid_lrc">Choose an LRC file with line timestamps, under 512 KB.</string>
     <string name="lyrics_earlier">Show earlier (+100 ms) · advance %1$d ms</string>
     <string name="lyrics_later">Show later (−100 ms) · advance %1$d ms</string>
+    <string name="home_all">All</string>
+    <string name="home_albums">Albums</string>
+    <string name="home_mixes">Mixes</string>
+    <string name="mood_mixer">Mood and energy</string>
+    <string name="mood_empty">No matching mood or genre tags in this library.</string>
+    <string name="mood_relaxed">Relaxed</string>
+    <string name="mood_energetic">Energetic</string>
+    <string name="mood_happy">Happy</string>
+    <string name="mood_nostalgic">Nostalgic</string>
+    <string name="mood_romantic">Romantic</string>
+    <string name="mood_workout">Workout</string>
 </resources>

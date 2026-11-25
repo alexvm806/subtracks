@@ -1,6 +1,7 @@
 package com.subtracks.ui.home
 
 import androidx.annotation.StringRes
+import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -44,6 +45,7 @@ import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
@@ -57,6 +59,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -171,6 +174,7 @@ fun HomeRoute(
             onAlbumClick = onAlbumClick,
             onArtistClick = onArtistClick,
             onPlayStarred = viewModel::playStarred,
+            onPlayMood = viewModel::playMood,
             onShufflePlayed = {
                 val albums = feed.recentlyPlayedAlbums
                 albums.firstOrNull()?.let { playbackController.shuffleRecentAlbums(it.sourceId, albums.map(Album::id)) }
@@ -206,6 +210,7 @@ fun HomeScreen(
     onArtistClick: (Artist) -> Unit = {},
     onPlayStarred: (Song) -> Unit = {},
     onOpenDownloads: (() -> Unit)? = null,
+    onPlayMood: (List<String>) -> Unit = {},
     onShufflePlayed: (() -> Unit)? = null,
     onShuffleLiked: (() -> Unit)? = null,
     onShuffleRecent: (() -> Unit)? = null,
@@ -229,6 +234,7 @@ fun HomeScreen(
             )
             return@CompositionLocalProvider
         }
+        var filter by rememberSaveable { mutableStateOf(HomeFilter.All) }
         LazyColumn(
             modifier = modifier.fillMaxSize(),
             contentPadding = PaddingValues(top = topInset + 8.dp, bottom = bottomInset + 24.dp),
@@ -260,59 +266,56 @@ fun HomeScreen(
                     }
                 }
             }
-            if (feed.recentlyPlayedAlbums.isNotEmpty()) {
-                item(key = "recent-album-tiles") {
-                    Column(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        feed.recentlyPlayedAlbums.take(6).chunked(2).forEach { pair ->
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                pair.forEach { item ->
-                                    Surface(
-                                        onClick = { onAlbumClick(item) },
-                                        modifier = Modifier.weight(1f),
-                                        shape = RoundedCornerShape(16.dp),
-                                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                                    ) {
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            CoverArt(
-                                                ref = coverArt(item.coverArt, true),
-                                                name = item.name,
-                                                modifier = Modifier.size(52.dp).clip(RoundedCornerShape(13.dp)),
-                                            )
-                                            Text(
-                                                text = item.name,
-                                                modifier = Modifier.padding(horizontal = 8.dp),
-                                                style = MaterialTheme.typography.labelLarge,
-                                                maxLines = 2,
-                                                overflow = TextOverflow.Ellipsis,
-                                            )
-                                        }
-                                    }
-                                }
-                                if (pair.size == 1) Spacer(Modifier.weight(1f))
-                            }
-                        }
+            item(key = "home-filters") {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    HomeFilter.entries.forEach { option ->
+                        FilterChip(
+                            selected = option == filter,
+                            onClick = { filter = option },
+                            label = { Text(stringResource(option.label)) },
+                            shape = CircleShape,
+                        )
                     }
                 }
             }
             item(key = "home-shortcuts") {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    AssistChip(
-                        onClick = { onMore(HomeSection.RecentlyStarredSongs) },
-                        label = { Text(stringResource(R.string.liked_songs)) },
-                        leadingIcon = { Icon(Icons.Rounded.Favorite, contentDescription = null) },
-                    )
-                    if (onOpenDownloads != null) {
-                        AssistChip(
-                            onClick = onOpenDownloads,
-                            label = { Text(stringResource(R.string.downloads_title)) },
-                            leadingIcon = { Icon(Icons.Rounded.Download, contentDescription = null) },
-                        )
+                val tiles =
+                    buildList {
+                        if (filter == HomeFilter.All) {
+                            val liked = stringResource(R.string.liked_songs)
+                            add(HomeShortcut(liked, Icons.Rounded.Favorite) { onMore(HomeSection.RecentlyStarredSongs) })
+                            add(HomeShortcut(stringResource(R.string.mood_mixer), Icons.Rounded.Casino) { filter = HomeFilter.Mixes })
+                        }
+                        if (filter != HomeFilter.Mixes) {
+                            feed.recentlyPlayedAlbums.take(6).forEach { album ->
+                                add(HomeShortcut(album.name, Icons.Rounded.Album, coverArt(album.coverArt, true)) { onAlbumClick(album) })
+                            }
+                        }
+                    }
+                ShortcutGrid(tiles)
+            }
+            if (filter == HomeFilter.Mixes) {
+                item(key = "mood-choices") {
+                    HomeSectionHeader(R.string.mood_mixer, Icons.Rounded.MusicNote, null)
+                    val tiles =
+                        moodTags.mapNotNull { (label, tags) ->
+                            val matches = feed.genres.filter { it.trim().lowercase() in tags }
+                            if (matches.isEmpty()) null else HomeShortcut(stringResource(label), Icons.Rounded.Casino) { onPlayMood(matches) }
+                        }
+                    if (tiles.isEmpty()) Text(stringResource(R.string.mood_empty), modifier = Modifier.padding(16.dp))
+                    ShortcutGrid(tiles)
+                }
+                return@LazyColumn
+            }
+            if (filter == HomeFilter.All && onOpenDownloads != null) {
+                item(key = "downloads") {
+                    TextButton(onClick = onOpenDownloads, modifier = Modifier.padding(horizontal = 8.dp)) {
+                        Icon(Icons.Rounded.Download, contentDescription = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text(stringResource(R.string.downloads_title))
                     }
                 }
             }
@@ -324,6 +327,11 @@ fun HomeScreen(
                 onLongClick,
                 onMore,
             )
+            if (filter == HomeFilter.Albums) {
+                albumRow(HomeSection.MostPlayedAlbums, feed.mostPlayedAlbums, coverArt, onAlbumClick, onLongClick, onMore)
+                albumRow(HomeSection.Rediscover, feed.rediscoverAlbums, coverArt, onAlbumClick, onLongClick, onMore)
+                return@LazyColumn
+            }
             artistRow(
                 HomeSection.RecentlyPlayedArtists,
                 feed.recentlyPlayedArtists,
@@ -369,6 +377,73 @@ fun HomeScreen(
                 onLongClick,
                 onMore,
             )
+        }
+    }
+}
+
+private enum class HomeFilter(
+    val label: Int,
+) {
+    All(R.string.home_all),
+    Albums(R.string.home_albums),
+    Mixes(R.string.home_mixes),
+}
+
+private val moodTags =
+    mapOf(
+        R.string.mood_relaxed to setOf("ambient", "chillout", "downtempo", "relaxing", "calm", "relaxed"),
+        R.string.mood_energetic to setOf("energetic", "drum and bass", "hard rock", "hardcore", "high energy"),
+        R.string.mood_happy to setOf("happy", "upbeat", "feel good", "disco"),
+        R.string.mood_nostalgic to setOf("nostalgic", "oldies", "retro"),
+        R.string.mood_romantic to setOf("romantic", "romance", "love songs", "slow jams"),
+        R.string.mood_workout to setOf("workout", "fitness", "running", "high energy", "hi-nrg"),
+    )
+
+private data class HomeShortcut(
+    val name: String,
+    val icon: ImageVector,
+    val art: CoverArtRef? = null,
+    val open: () -> Unit,
+)
+
+@Composable
+private fun ShortcutGrid(tiles: List<HomeShortcut>) {
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        tiles.chunked(2).forEach { pair ->
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                pair.forEach { tile ->
+                    Surface(
+                        onClick = tile.open,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (tile.art != null) {
+                                CoverArt(ref = tile.art, name = tile.name, modifier = Modifier.size(54.dp))
+                            } else {
+                                Box(
+                                    Modifier.size(54.dp).background(MaterialTheme.colorScheme.secondaryContainer),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Icon(tile.icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSecondaryContainer)
+                                }
+                            }
+                            Text(
+                                tile.name,
+                                modifier = Modifier.padding(horizontal = 8.dp),
+                                style = MaterialTheme.typography.labelLarge,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                    }
+                }
+                if (pair.size == 1) Spacer(Modifier.weight(1f))
+            }
         }
     }
 }

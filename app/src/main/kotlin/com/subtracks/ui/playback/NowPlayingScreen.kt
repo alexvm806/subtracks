@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -327,13 +328,8 @@ fun NowPlayingRoute(
                 }
                 LyricsPanel(
                     advanceMs = advance,
-                    title = track.title,
-                    artist = track.artist,
-                    album = track.album,
-                    artwork = thumbnail,
                     playing = state.isPlaying,
                     positionMs = positionMs,
-                    durationMs = state.durationMs,
                     playerPosition = controller::lyricPositionMs,
                     offline = offline,
                     load = {
@@ -342,10 +338,8 @@ fun NowPlayingRoute(
                         }
                     },
                     onSeek = controller::seekTo,
-                    onPlayPause = controller::togglePlayPause,
-                    onPrevious = controller::previous,
-                    onNext = controller::next,
                     actions = {
+                        if (!expanded) return@LyricsPanel
                         var menu by remember { mutableStateOf(false) }
                         Box {
                             IconButton(onClick = { menu = true }) {
@@ -441,7 +435,12 @@ fun NowPlayingRoute(
 
     if (fullLyrics) {
         Dialog(onDismissRequest = { fullLyrics = false }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-            ArtworkTheme(colors) { panel(true) }
+            ArtworkTheme(colors) {
+                Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+                    HeroGradient(colors = colors, scrollPx = { 0f }, modifier = Modifier.fillMaxSize())
+                    panel(true)
+                }
+            }
         }
     }
     if (showTimer) {
@@ -574,41 +573,6 @@ fun NowPlayingScreen(
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
                     containerColor = Color.Transparent,
-                    topBar = {
-                        TopAppBar(
-                            title = {
-                                Column {
-                                    Text(
-                                        text = stringResource(R.string.now_playing_header, kindLabel).uppercase(),
-                                        style = MaterialTheme.typography.labelLarge,
-                                        fontWeight = FontWeight.SemiBold,
-                                        letterSpacing = 1.sp,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        maxLines = 1,
-                                    )
-                                    Text(
-                                        text = title,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                    )
-                                }
-                            },
-                            navigationIcon = {
-                                IconButton(onClick = onBack) {
-                                    Icon(
-                                        Icons.AutoMirrored.Rounded.ArrowBack,
-                                        contentDescription = stringResource(R.string.navigation_back),
-                                    )
-                                }
-                            },
-                            actions = {
-                                IconButton(onClick = onMore) {
-                                    Icon(Icons.Rounded.MoreVert, contentDescription = stringResource(R.string.controls_more))
-                                }
-                            },
-                            colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
-                        )
-                    },
                 ) { padding ->
                     LazyColumn(modifier = Modifier.fillMaxSize().padding(padding), state = playerList) {
                         item {
@@ -619,6 +583,40 @@ fun NowPlayingScreen(
                                         .padding(horizontal = 24.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally,
                             ) {
+                                TopAppBar(
+                                    windowInsets = WindowInsets(0, 0, 0, 0),
+                                    title = {
+                                        Column {
+                                            Text(
+                                                text = stringResource(R.string.now_playing_header, kindLabel).uppercase(),
+                                                style = MaterialTheme.typography.labelLarge,
+                                                fontWeight = FontWeight.SemiBold,
+                                                letterSpacing = 1.sp,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                maxLines = 1,
+                                            )
+                                            Text(
+                                                text = title,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis,
+                                            )
+                                        }
+                                    },
+                                    navigationIcon = {
+                                        IconButton(onClick = onBack) {
+                                            Icon(
+                                                Icons.AutoMirrored.Rounded.ArrowBack,
+                                                contentDescription = stringResource(R.string.navigation_back),
+                                            )
+                                        }
+                                    },
+                                    actions = {
+                                        IconButton(onClick = onMore) {
+                                            Icon(Icons.Rounded.MoreVert, contentDescription = stringResource(R.string.controls_more))
+                                        }
+                                    },
+                                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
+                                )
                                 // Deliberately unclipped: a tile that fills the width would lose its drop
                                 // shadow. TILE_GAP keeps the neighbours off-screen instead.
                                 Box(
@@ -921,7 +919,7 @@ fun NowPlayingScreen(
                         }
                         item {
                             Column(
-                                modifier = Modifier.fillParentMaxHeight().fillMaxWidth().padding(24.dp),
+                                modifier = Modifier.fillParentMaxHeight().fillMaxWidth(),
                                 verticalArrangement = Arrangement.spacedBy(16.dp),
                             ) {
                                 lyricsContent()

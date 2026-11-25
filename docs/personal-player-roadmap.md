@@ -11,6 +11,12 @@ The Android app uses Compose, Room 3, Paging 3, Coil and a Media3 session backed
 | 5 • Additional experiences | Android media notification and existing queue persistence. | Home widgets, visible-only visualisers, MediaLibraryService browse tree for Android Auto, explicit queue resume and optional authenticated handoff. |
 | 6 • Desktop | Platform boundaries documented. | Extract portable Kotlin models, matching and sync logic once Android stabilises. Compose Desktop with native playback engines and installable Fedora x86_64 and Windows x64 packages. |
 
+## Discovery milestones
+
+- [x] Home mood mixer builds a shuffled queue of up to 30 songs from matching mood and genre tags. Only choices with a match appear.
+- [ ] Music compatibility matching. Index BPM, musical key and energy when supplied by the source. Rank candidates with known values and show which fields matched. Optional audio analysis and transition scheduling follow separately.
+- [ ] Time Machine. Record and deduplicate timestamped listening events, support local history import, then query last summer, last Christmas and this time last year. Show an empty state for periods without history.
+
 ## Verification
 
 - [x] Previous Android milestone compiled, passed CI and played from the owner's Navidrome server.

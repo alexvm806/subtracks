@@ -538,6 +538,15 @@ interface LibraryDao {
     ): Flow<List<AlbumSongItem>>
 
     @Query(
+        "SELECT DISTINCT songId FROM song_genres WHERE sourceId = :sourceId AND genre IN (:genres) " +
+            "ORDER BY songId LIMIT 180",
+    )
+    suspend fun moodSongIds(
+        sourceId: Long,
+        genres: List<String>,
+    ): List<String>
+
+    @Query(
         "SELECT song_genres.genre FROM song_genres " +
             "JOIN songs ON songs.sourceId = song_genres.sourceId AND songs.id = song_genres.songId " +
             "WHERE song_genres.sourceId = :sourceId " +

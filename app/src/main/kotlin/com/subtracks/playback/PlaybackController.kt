@@ -340,6 +340,14 @@ class PlaybackController(
 
     fun shuffleDownloaded(sourceId: Long) = shufflePlay(queueRepository.downloadedEntry(sourceId))
 
+    fun shuffleMood(
+        sourceId: Long,
+        songIds: List<String>,
+    ) {
+        val entries = songIds.shuffled().take(30).map { queueRepository.songEntry(sourceId, it) }
+        if (entries.isNotEmpty()) shufflePlay(entries)
+    }
+
     fun shuffleRecentAlbums(
         sourceId: Long,
         albumIds: List<String>,
