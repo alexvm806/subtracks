@@ -157,6 +157,7 @@ class Media3PlayerHandle(
                     if (!playWhenReady) listener.onCheckpointRequested()
                 }
 
+                @androidx.annotation.OptIn(UnstableApi::class)
                 override fun onPositionDiscontinuity(
                     oldPosition: Player.PositionInfo,
                     newPosition: Player.PositionInfo,
