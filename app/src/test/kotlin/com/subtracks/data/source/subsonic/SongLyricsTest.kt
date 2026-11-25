@@ -79,6 +79,20 @@ class SongLyricsTest {
     }
 
     @Test
+    fun timedFileKeepsRepeatedTimestampsAndAppliesOffset() {
+        val raw = "[offset:100]\n[00:04.005][00:01.2]Repeated\n[00:02.34]Middle"
+        val expected = listOf(LyricLine("Repeated", 1100), LyricLine("Middle", 2240), LyricLine("Repeated", 3905))
+        assertEquals(expected, SongLyrics.parseLrc(raw))
+        val file = SongLyrics.overrideFile(cache.root, 1, "track")
+        SongLyrics.importLrc(file, raw.byteInputStream())
+        assertEquals(expected, SongLyrics.readOverride(file))
+        assertEquals(emptyList<LyricLine>(), SongLyrics.readOverride(SongLyrics.overrideFile(cache.root, 2, "track")))
+        val rejected = runCatching { SongLyrics.importLrc(file, "untimed".byteInputStream()) }
+        assertEquals(true, rejected.isFailure)
+        assertEquals(expected, SongLyrics.readOverride(file))
+    }
+
+    @Test
     fun classicLyricsRetainLineOrder() {
         val response = JSONObject().put("lyrics", JSONObject().put("value", "First\nSecond"))
         assertEquals(listOf(LyricLine("First", null), LyricLine("Second", null)), SongLyrics.parse(response))

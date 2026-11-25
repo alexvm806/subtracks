@@ -30,6 +30,9 @@ jobs:
           mkdir -p dist
           cp app/build/outputs/apk/nightly/app-nightly.apk dist/subtracks-development.apk
           cd dist
+          apk_bytes=$(stat -c %s subtracks-development.apk)
+          echo "APK size: $apk_bytes bytes" >> "$GITHUB_STEP_SUMMARY"
+          test "$apk_bytes" -le 75000000
           sha256sum subtracks-development.apk > SHA256SUMS
       - uses: actions/upload-artifact@v7
         with:
