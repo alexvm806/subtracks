@@ -415,4 +415,6 @@
     <string name="choose_lrc">Choose timed lyrics (.lrc)</string>
     <string name="reset_lrc">Use library lyrics</string>
     <string name="invalid_lrc">Choose an LRC file with line timestamps, under 512 KB.</string>
+    <string name="lyrics_earlier">Show earlier (+100 ms) · advance %1$d ms</string>
+    <string name="lyrics_later">Show later (−100 ms) · advance %1$d ms</string>
 </resources>

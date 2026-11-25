@@ -286,8 +286,6 @@ fun NowPlayingRoute(
     }
     val colors = rememberArtworkColors(thumbnail ?: art, fallbackName = state.item?.title)
     val track = song?.takeIf { it.id == songId && it.sourceId == sourceId }
-    val sources: SourceRepository = koinInject()
-    val offline by sources.offline.collectAsStateWithLifecycle()
     var lyricRevision by remember { mutableIntStateOf(0) }
     var pendingSong by rememberSaveable { mutableStateOf<String?>(null) }
     var pendingSource by rememberSaveable { mutableStateOf<Long?>(null) }
@@ -316,9 +314,18 @@ fun NowPlayingRoute(
     val panel: @Composable (Boolean) -> Unit = { expanded ->
         if (track != null) {
             key(track.sourceId, track.id, lyricRevision) {
+                val sources: SourceRepository = koinInject()
+                val offline by sources.offline.collectAsStateWithLifecycle()
                 val file = remember { SongLyrics.overrideFile(context.filesDir, track.sourceId, track.id) }
+                val timing = remember { context.getSharedPreferences("lyric-timing", 0) }
+                val timingKey = file.baseFile.name
+                var advance by remember { mutableIntStateOf(timing.getInt(timingKey, 0)) }
+                val adjust: (Int) -> Unit = { amount ->
+                    advance = (advance + amount).coerceIn(-5000, 5000)
+                    timing.edit().putInt(timingKey, advance).apply()
+                }
                 LyricsPanel(
-                    title = track.title,
+                    advanceMs = advance,                    title = track.title,
                     artist = track.artist,
                     album = track.album,
                     artwork = thumbnail,
@@ -343,6 +350,14 @@ fun NowPlayingRoute(
                                 Icon(Icons.Rounded.MoreVert, stringResource(R.string.controls_more))
                             }
                             DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.lyrics_earlier, advance)) },
+                                    onClick = { adjust(100) },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.lyrics_later, advance)) },
+                                    onClick = { adjust(-100) },
+                                )
                                 DropdownMenuItem(
                                     text = { Text(stringResource(R.string.choose_lrc)) },
                                     onClick = {

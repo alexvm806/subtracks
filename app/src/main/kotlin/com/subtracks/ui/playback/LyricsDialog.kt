@@ -64,6 +64,7 @@ internal fun LyricsPanel(
     playing: Boolean,
     positionMs: Long,
     durationMs: Long,
+    advanceMs: Int,
     playerPosition: () -> Long,
     offline: Boolean,
     load: suspend () -> List<LyricLine>,
@@ -86,7 +87,15 @@ internal fun LyricsPanel(
                 actions()
             }
             Column(modifier = Modifier.weight(1f).fillMaxWidth().padding(vertical = 8.dp)) {
-                LyricsContent(offline, load, onSeek, playerPosition, playing, positionMs)
+                LyricsContent(
+                    offline = offline,
+                    load = load,
+                    onSeek = { onSeek((it - advanceMs).coerceAtLeast(0)) },
+                    playerPosition = playerPosition,
+                    playing = playing,
+                    positionMs = positionMs,
+                    advanceMs = advanceMs,
+                )
             }
             if (durationMs > 0) {
                 var scrub by remember { mutableStateOf<Float?>(null) }
@@ -121,6 +130,7 @@ private fun LyricsContent(
     playerPosition: () -> Long,
     playing: Boolean,
     positionMs: Long,
+    advanceMs: Int,
 ) {
     var lines by remember { mutableStateOf<List<LyricLine>?>(null) }
     var failed by remember { mutableStateOf(false) }
@@ -166,7 +176,7 @@ private fun LyricsContent(
                     }
                 }
             }
-            LyricList(lyrics, if (playing) clock else positionMs, onSeek)
+            LyricList(lyrics, (if (playing) clock else positionMs) + advanceMs, onSeek)
         }
     }
 }
