@@ -150,6 +150,26 @@ class Media3PlayerHandle(
                     listener.onTransition()
                 }
 
+                override fun onPlayWhenReadyChanged(
+                    playWhenReady: Boolean,
+                    reason: Int,
+                ) {
+                    if (!playWhenReady) listener.onCheckpointRequested()
+                }
+
+                override fun onPositionDiscontinuity(
+                    oldPosition: Player.PositionInfo,
+                    newPosition: Player.PositionInfo,
+                    reason: Int,
+                ) {
+                    if (reason == Player.DISCONTINUITY_REASON_SEEK &&
+                        oldPosition.mediaItemIndex == newPosition.mediaItemIndex &&
+                        oldPosition.mediaItem?.mediaId == newPosition.mediaItem?.mediaId
+                    ) {
+                        listener.onCheckpointRequested()
+                    }
+                }
+
                 override fun onEvents(
                     player: Player,
                     events: Player.Events,

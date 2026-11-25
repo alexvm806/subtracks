@@ -1923,6 +1923,10 @@ class PlaybackController(
                 scope.launch { onPositionChanged() }
             }
 
+            override fun onCheckpointRequested() {
+                if (!updating) savePosition()
+            }
+
             override fun onEvents() {
                 if (player?.isEnded == true) handleEnded() else endedHandled = false
                 refresh()
@@ -2130,11 +2134,20 @@ class PlaybackController(
     private fun shouldPersistPosition(): Boolean = !detachedWindow || currentPosition() != null
 
     private fun persistPosition(positionMs: Long) {
+        val position = currentPosition() ?: return
+        val version = snapshot?.version ?: return
+        val itemId = player?.currentItem?.id ?: return
         scope.launch {
             queueRepository.withMutationLock {
-                if (!shouldPersistPosition()) return@withMutationLock
-                lastSavedPositionMs = positionMs
-                queueRepository.setPosition(positionMs)
+                if (queueRepository.contentVersion() != version ||
+                    currentPosition() != position ||
+                    player?.currentItem?.id != itemId
+                ) {
+                    return@withMutationLock
+                }
+                if (queueRepository.checkpointPosition(position, positionMs)) {
+                    lastSavedPositionMs = positionMs
+                }
             }
         }
     }

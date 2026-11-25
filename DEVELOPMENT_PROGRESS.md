@@ -44,3 +44,9 @@ Source audit against optimised development build 29 (`fc82b82`). Status describe
 ### Performance baseline and test conditions
 
 Build 29's GitHub artifact ZIP was 9,004,075 bytes. Compare the same optimised variant, signing and archive type. Installed size, startup, RAM, CPU, frame timing, search latency, battery, network bytes and server request counts still need a matched Android device, library, playback route and network. Compare offline and remote playback separately. APK archive size alone cannot establish a runtime regression or improvement.
+
+### Phase A • playback position checkpoints
+
+Changed `PlaybackController.kt`, `PlayerHandle.kt`, `Media3PlayerHandle.kt`, `QueueRepository.kt` and `PlaybackControllerTest.kt`. The existing Media3 listener handles pause and same-track seek events while connected. The controller captures queue version, index and track ID; Room checks the durable cursor before changing the offset. Identical offsets skip the write. There is no new dependency, polling loop, schema or background service. Existing 15-second playback checkpoints and paused restoration remain in use.
+
+Added regression coverage for a stale checkpoint after the cursor moves, and a paused-state assertion on restoration. CI and APK measurements pending. Service-only checkpointing without a UI controller, playback speed, prior active-state metadata and physical-device process death, reboot and network acceptance remain outstanding. No runtime performance measurements yet.
