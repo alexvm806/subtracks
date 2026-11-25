@@ -410,4 +410,9 @@
     <string name="device_all_songs">Songs from all sources</string>
     <string name="device_no_songs">No songs available here yet.</string>
     <string name="shuffle_recently_added">Shuffle recently added</string>
+    <string name="custom_shuffle">Custom shuffle</string>
+    <string name="shuffle_recently_played">Shuffle recently played albums</string>
+    <string name="choose_lrc">Choose timed lyrics (.lrc)</string>
+    <string name="reset_lrc">Use library lyrics</string>
+    <string name="invalid_lrc">Choose an LRC file with line timestamps, under 512 KB.</string>
 </resources>

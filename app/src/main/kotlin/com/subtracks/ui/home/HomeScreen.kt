@@ -4,6 +4,7 @@ import androidx.annotation.StringRes
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -38,10 +39,13 @@ import androidx.compose.material.icons.rounded.LocalFireDepartment
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Replay
-import androidx.compose.material.icons.rounded.Shuffle
+import androidx.compose.material.icons.rounded.Casino
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material3.AssistChip
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -167,7 +171,13 @@ fun HomeRoute(
             onAlbumClick = onAlbumClick,
             onArtistClick = onArtistClick,
             onPlayStarred = viewModel::playStarred,
-            onPlayRecent = { playbackController.playSong(it.sourceId, it.id) },
+            onShufflePlayed = {
+                val albums = feed.recentlyPlayedAlbums
+                albums.firstOrNull()?.let { playbackController.shuffleRecentAlbums(it.sourceId, albums.map(Album::id)) }
+            },
+            onShuffleLiked = {
+                feed.recentlyStarredSongs.firstOrNull()?.song?.let { playbackController.shuffleStarred(it.sourceId) }
+            },
             onShuffleRecent = {
                 val albums = feed.recentlyAddedAlbums
                 albums.firstOrNull()?.let { playbackController.shuffleRecentAlbums(it.sourceId, albums.map(Album::id)) }
@@ -195,7 +205,8 @@ fun HomeScreen(
     onArtistClick: (Artist) -> Unit = {},
     onPlayStarred: (Song) -> Unit = {},
     onOpenDownloads: (() -> Unit)? = null,
-    onPlayRecent: (Song) -> Unit = {},
+    onShufflePlayed: (() -> Unit)? = null,
+    onShuffleLiked: (() -> Unit)? = null,
     onShuffleRecent: (() -> Unit)? = null,
     onLongClick: (MenuTarget) -> Unit = {},
     onMore: (HomeSection) -> Unit = {},
@@ -221,18 +232,44 @@ fun HomeScreen(
             modifier = modifier.fillMaxSize(),
             contentPadding = PaddingValues(top = topInset + 8.dp, bottom = bottomInset + 24.dp),
         ) {
-            homeTitle()
-            if (feed.recentSongs.isNotEmpty()) {
-                item(key = "recent-song-tiles") {
+            homeTitle {
+                var expanded by remember { mutableStateOf(false) }
+                val choices =
+                    listOfNotNull(
+                        onShuffleRecent?.takeIf { feed.recentlyAddedAlbums.isNotEmpty() }?.let { R.string.shuffle_recently_added to it },
+                        onShufflePlayed?.takeIf { feed.recentlyPlayedAlbums.isNotEmpty() }?.let { R.string.shuffle_recently_played to it },
+                        onShuffleLiked?.takeIf { feed.recentlyStarredSongs.isNotEmpty() }?.let { R.string.liked_songs to it },
+                    )
+                if (choices.isNotEmpty()) {
+                    Box {
+                        IconButton(onClick = { expanded = true }) {
+                            Icon(Icons.Rounded.Casino, contentDescription = stringResource(R.string.custom_shuffle))
+                        }
+                        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                            choices.forEach { (label, play) ->
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(label)) },
+                                    onClick = {
+                                        expanded = false
+                                        play()
+                                    },
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+            if (feed.recentlyPlayedAlbums.isNotEmpty()) {
+                item(key = "recent-album-tiles") {
                     Column(
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        feed.recentSongs.take(6).chunked(2).forEach { pair ->
+                        feed.recentlyPlayedAlbums.take(6).chunked(2).forEach { pair ->
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 pair.forEach { item ->
                                     Surface(
-                                        onClick = { onPlayRecent(item.song) },
+                                        onClick = { onAlbumClick(item) },
                                         modifier = Modifier.weight(1f),
                                         shape = RoundedCornerShape(16.dp),
                                         color = MaterialTheme.colorScheme.surfaceContainerHigh,
@@ -240,11 +277,11 @@ fun HomeScreen(
                                         Row(verticalAlignment = Alignment.CenterVertically) {
                                             CoverArt(
                                                 ref = coverArt(item.coverArt, true),
-                                                name = item.song.title,
+                                                name = item.name,
                                                 modifier = Modifier.size(52.dp).clip(RoundedCornerShape(13.dp)),
                                             )
                                             Text(
-                                                text = item.song.title,
+                                                text = item.name,
                                                 modifier = Modifier.padding(horizontal = 8.dp),
                                                 style = MaterialTheme.typography.labelLarge,
                                                 maxLines = 2,
@@ -275,15 +312,6 @@ fun HomeScreen(
                             label = { Text(stringResource(R.string.downloads_title)) },
                             leadingIcon = { Icon(Icons.Rounded.Download, contentDescription = null) },
                         )
-                    }
-                }
-            }
-            if (feed.recentlyAddedAlbums.isNotEmpty() && onShuffleRecent != null) {
-                item(key = "shuffle-recent") {
-                    TextButton(onClick = onShuffleRecent, modifier = Modifier.padding(horizontal = 8.dp)) {
-                        Icon(Icons.Rounded.Shuffle, contentDescription = null)
-                        Spacer(Modifier.width(8.dp))
-                        Text(stringResource(R.string.shuffle_recently_added))
                     }
                 }
             }
@@ -322,14 +350,6 @@ fun HomeScreen(
                 onMore,
             )
             genreBlock(HomeSection.Genres, feed.genres, onGenreClick, onMore)
-            albumRow(
-                HomeSection.RecentlyPlayedAlbums,
-                feed.recentlyPlayedAlbums,
-                coverArt,
-                onAlbumClick,
-                onLongClick,
-                onMore,
-            )
             artistRow(
                 HomeSection.MostPlayedArtists,
                 feed.mostPlayedArtists,
@@ -352,7 +372,7 @@ fun HomeScreen(
     }
 }
 
-private fun LazyListScope.homeTitle() {
+private fun LazyListScope.homeTitle(action: @Composable () -> Unit = {}) {
     item(key = "home-title") {
         Row(
             modifier =
@@ -375,6 +395,7 @@ private fun LazyListScope.homeTitle() {
                     else -> R.string.greeting_evening
                 }
             Text(text = stringResource(greeting), style = MaterialTheme.typography.headlineMedium)
+            action()
         }
     }
 }
@@ -547,8 +568,7 @@ private fun PlaylistTile(
 }
 
 private fun HomeFeed.isEmpty(): Boolean =
-    recentSongs.isEmpty() &&
-        recentlyPlayedAlbums.isEmpty() &&
+    recentlyPlayedAlbums.isEmpty() &&
         recentlyPlayedArtists.isEmpty() &&
         mostPlayedAlbums.isEmpty() &&
         mostPlayedArtists.isEmpty() &&

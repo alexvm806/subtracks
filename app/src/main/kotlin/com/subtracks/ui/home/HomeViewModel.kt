@@ -44,7 +44,6 @@ data class HomeFeed(
     val recentlyStarredSongs: List<AlbumSongItem> = emptyList(),
     val recentlyAddedAlbums: List<Album> = emptyList(),
     val rediscoverAlbums: List<Album> = emptyList(),
-    val recentSongs: List<AlbumSongItem> = emptyList(),
     val loading: Boolean = false,
 )
 
@@ -109,8 +108,7 @@ class HomeViewModel(
                         libraryRepository.hasAlbumPlayCount(sourceId),
                         libraryRepository.hasAlbumPlayed(sourceId),
                     ) { frequent, recent -> frequent || recent }
-                val recentSongs = libraryRepository.recentlyPlayedSongs(sourceId, 6)
-                combine(plays, discovery, hasPlayData, recentSongs) { rows, found, played, songs ->
+                combine(plays, discovery, hasPlayData) { rows, found, played ->
                     buildHomeFeed(
                         recentAlbums = rows.recentAlbums,
                         recentArtists = rows.recentArtists,
@@ -122,7 +120,7 @@ class HomeViewModel(
                         addedAlbums = found.addedAlbums,
                         rediscover = found.rediscover,
                         hasPlayData = played,
-                    ).copy(recentSongs = songs)
+                    )
                 }
             }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeFeed(loading = true))
 

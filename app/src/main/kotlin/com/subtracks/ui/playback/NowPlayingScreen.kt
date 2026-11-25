@@ -1,5 +1,8 @@
 package com.subtracks.ui.playback
 
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
 import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.tween
@@ -26,6 +29,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.Lyrics
@@ -40,6 +44,8 @@ import androidx.compose.material.icons.rounded.ShuffleOn
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SkipPrevious
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -56,10 +62,12 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -78,6 +86,8 @@ import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.LocalPlatformContext
 import com.subtracks.R
@@ -89,6 +99,7 @@ import com.subtracks.data.repo.DownloadRepository
 import com.subtracks.data.repo.LibraryRepository
 import com.subtracks.data.repo.SourceRepository
 import com.subtracks.data.source.StarType
+import com.subtracks.data.source.subsonic.SongLyrics
 import com.subtracks.playback.PlaybackController
 import com.subtracks.playback.PlaybackState
 import com.subtracks.playback.QueueItem
@@ -105,6 +116,7 @@ import com.subtracks.ui.theme.ArtworkSeedCache
 import com.subtracks.ui.theme.ArtworkTheme
 import com.subtracks.ui.theme.HeroGradient
 import com.subtracks.ui.theme.rememberArtworkColors
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -273,6 +285,94 @@ fun NowPlayingRoute(
         next?.thumbnailRef?.let { ArtworkSeedCache.prefetch(context, it) }
     }
     val colors = rememberArtworkColors(thumbnail ?: art, fallbackName = state.item?.title)
+    val track = song?.takeIf { it.id == songId && it.sourceId == sourceId }
+    val sources: SourceRepository = koinInject()
+    val offline by sources.offline.collectAsStateWithLifecycle()
+    var lyricRevision by remember { mutableIntStateOf(0) }
+    var pendingSong by rememberSaveable { mutableStateOf<String?>(null) }
+    var pendingSource by rememberSaveable { mutableStateOf<Long?>(null) }
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        val id = pendingSong
+        val source = pendingSource
+        pendingSong = null
+        pendingSource = null
+        if (uri != null && id != null && source != null) {
+            scope.launch {
+                try {
+                    withContext(Dispatchers.IO) {
+                        val file = SongLyrics.overrideFile(context.filesDir, source, id)
+                        requireNotNull(context.contentResolver.openInputStream(uri)).use { SongLyrics.importLrc(file, it) }
+                    }
+                    lyricRevision++
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (_: Exception) {
+                    Toast.makeText(context, R.string.invalid_lrc, Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
+    val panel: @Composable (Boolean) -> Unit = { expanded ->
+        if (track != null) {
+            key(track.sourceId, track.id, lyricRevision) {
+                val file = remember { SongLyrics.overrideFile(context.filesDir, track.sourceId, track.id) }
+                LyricsPanel(
+                    title = track.title,
+                    artist = track.artist,
+                    album = track.album,
+                    artwork = thumbnail,
+                    playing = state.isPlaying,
+                    positionMs = positionMs,
+                    durationMs = state.durationMs,
+                    playerPosition = controller::lyricPositionMs,
+                    offline = offline,
+                    load = {
+                        withContext(Dispatchers.IO) { SongLyrics.readOverride(file) }.ifEmpty {
+                            sources.lyrics(context.cacheDir, track.sourceId, track.id, track.artist, track.title)
+                        }
+                    },
+                    onSeek = controller::seekTo,
+                    onPlayPause = controller::togglePlayPause,
+                    onPrevious = controller::previous,
+                    onNext = controller::next,
+                    actions = {
+                        var menu by remember { mutableStateOf(false) }
+                        Box {
+                            IconButton(onClick = { menu = true }) {
+                                Icon(Icons.Rounded.MoreVert, stringResource(R.string.controls_more))
+                            }
+                            DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.choose_lrc)) },
+                                    onClick = {
+                                        menu = false
+                                        pendingSource = track.sourceId
+                                        pendingSong = track.id
+                                        picker.launch(arrayOf("*/*"))
+                                    },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.reset_lrc)) },
+                                    onClick = {
+                                        menu = false
+                                        scope.launch {
+                                            withContext(Dispatchers.IO) { file.delete() }
+                                            lyricRevision++
+                                        }
+                                    },
+                                )
+                            }
+                        }
+                        if (expanded) {
+                            IconButton(onClick = { fullLyrics = false }) {
+                                Icon(Icons.Rounded.Close, stringResource(R.string.info_close))
+                            }
+                        }
+                    },
+                )
+            }
+        }
+    }
     NowPlayingScreen(
         state = state,
         positionMs = positionMs,
@@ -292,22 +392,7 @@ fun NowPlayingRoute(
         onRepeat = controller::cycleRepeat,
         onMore = { song?.let { contextMenuHost?.show(MenuTarget.Song(it, thumbnail, download), actions) } },
         playerList = playerList,
-        lyricsContent = {
-            val track = song
-            Text(stringResource(R.string.lyrics_title), style = MaterialTheme.typography.headlineSmall)
-            if (track != null && track.id == songId && track.sourceId == sourceId) {
-                val sources: SourceRepository = koinInject()
-                val offline by sources.offline.collectAsStateWithLifecycle()
-                key(track.sourceId, track.id) {
-                    LyricsContent(
-                        positionMs = positionMs,
-                        offline = offline,
-                        load = { sources.lyrics(context.cacheDir, track.sourceId, track.id, track.artist, track.title) },
-                        onSeek = controller::seekTo,
-                    )
-                }
-            }
-        },
+        lyricsContent = { if (!fullLyrics) panel(false) },
         onLyrics = openLyrics,
         onAlbumClick = song?.albumId?.let { id -> { onViewAlbum(id) } },
         onArtistClick =
@@ -336,21 +421,9 @@ fun NowPlayingRoute(
         modifier = modifier,
     )
 
-    val track = song
-    if (fullLyrics && track != null && track.id == songId && track.sourceId == sourceId) {
-        val sources: SourceRepository = koinInject()
-        val offline by sources.offline.collectAsStateWithLifecycle()
-        ArtworkTheme(colors) {
-            key(track.sourceId, track.id) {
-                LyricsDialog(
-                    title = track.title,
-                    positionMs = positionMs,
-                    offline = offline,
-                    load = { sources.lyrics(context.cacheDir, track.sourceId, track.id, track.artist, track.title) },
-                    onSeek = controller::seekTo,
-                    onDismiss = { fullLyrics = false },
-                )
-            }
+    if (fullLyrics) {
+        Dialog(onDismissRequest = { fullLyrics = false }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+            ArtworkTheme(colors) { panel(true) }
         }
     }
     if (showTimer) {

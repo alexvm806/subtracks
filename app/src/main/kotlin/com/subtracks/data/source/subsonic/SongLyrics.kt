@@ -1,10 +1,12 @@
 package com.subtracks.data.source.subsonic
 
+import android.util.AtomicFile
 import android.util.LruCache
 import okio.buffer
 import okio.source
 import org.json.JSONObject
 import java.io.File
+import java.io.InputStream
 import java.security.MessageDigest
 
 internal data class LyricLine(
@@ -23,6 +25,58 @@ internal data class LyricCue(
 internal object SongLyrics {
     private const val MAX_BYTES = 512 * 1024L
     private val extensions = LruCache<String, Int>(16)
+
+    private val stamp = Regex("""\[(\d{1,5}):([0-5]\d)(?:[.:](\d{1,3}))?]""")
+    private val shift = Regex("""(?im)^\s*\[offset:\s*([+-]?\d{1,8})]\s*$""")
+
+    internal fun parseLrc(raw: String): List<LyricLine> {
+        val offset = shift.find(raw)?.groupValues?.get(1)?.toLongOrNull() ?: 0L
+        return buildList {
+            for (row in raw.removePrefix("\uFEFF").lineSequence()) {
+                val matches = stamp.findAll(row).toList()
+                val last = matches.lastOrNull() ?: continue
+                val words = row.substring(last.range.last + 1).trim()
+                if (words.isEmpty()) continue
+                for (match in matches) {
+                    val (minutes, seconds, fraction) = match.destructured
+                    val time = minutes.toLong() * 60_000 + seconds.toLong() * 1000 + fraction.padEnd(3, '0').toLong()
+                    add(LyricLine(words, (time - offset).coerceAtLeast(0)))
+                }
+            }
+        }.sortedBy { it.startMs }
+    }
+
+    internal fun overrideFile(
+        filesDir: File,
+        sourceId: Long,
+        songId: String,
+    ): AtomicFile = AtomicFile(File(File(filesDir, "timed-lyrics"), digest("$sourceId\u0000$songId")))
+
+    internal fun importLrc(
+        file: AtomicFile,
+        input: InputStream,
+    ) {
+        val raw = input.source().buffer().use { source ->
+            require(!source.request(MAX_BYTES + 1))
+            source.readUtf8()
+        }
+        require(parseLrc(raw).isNotEmpty())
+        synchronized(this) {
+            val out = file.startWrite()
+            try {
+                out.write(raw.toByteArray())
+                file.finishWrite(out)
+            } catch (error: Exception) {
+                file.failWrite(out)
+                throw error
+            }
+        }
+    }
+
+    internal fun readOverride(file: AtomicFile): List<LyricLine> =
+        synchronized(this) {
+            if (file.baseFile.exists()) parseLrc(file.readFully().decodeToString()) else emptyList()
+        }
 
     fun load(
         cacheDir: File,
@@ -146,6 +200,8 @@ internal object SongLyrics {
         }
         if (fallback.isNotEmpty()) return fallback
         val plain = response.optJSONObject("lyrics")?.optString("value").orEmpty()
+        val timed = parseLrc(plain)
+        if (timed.isNotEmpty()) return timed
         return plain.lines().filter { it.isNotBlank() }.map { LyricLine(it, null) }
     }
 

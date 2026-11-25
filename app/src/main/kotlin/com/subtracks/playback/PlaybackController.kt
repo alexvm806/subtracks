@@ -160,6 +160,8 @@ class PlaybackController(
     private val _positionMs = MutableStateFlow(0L)
     val positionMs: StateFlow<Long> = _positionMs
 
+    fun lyricPositionMs(): Long = player?.currentPositionMs ?: positionMs.value
+
     fun currentAudioEncoding(): AudioEncoding? = player?.audioEncoding
 
     private var player: PlayerHandle? = null
